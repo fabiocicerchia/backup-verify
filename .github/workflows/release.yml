@@ -1,0 +1,69 @@
+name: Release
+
+# release-please reads Conventional Commit messages on main and keeps an open
+# "release PR" ("chore: release X.Y.Z") that bumps the version in pyproject.toml
+# and updates CHANGELOG.md. Merging that PR (and only that) creates the vX.Y.Z
+# tag + GitHub Release, which then triggers the build and PyPI publish below.
+#
+# Publishing to PyPI is opt-in: configure a Trusted Publisher for this
+# repository on pypi.org (workflow: release.yml, environment: pypi) and set
+# the repository variable PUBLISH_TO_PYPI to "true".
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create tags & releases
+      pull-requests: write # open/update the release PR
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v4 # TODO: pin to SHA (dependabot)
+        id: rp
+        with:
+          # "python" bumps pyproject.toml's version and maintains CHANGELOG.md.
+          release-type: python
+
+  build:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # upload sdist + wheel to the release
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: pip install build && python -m build
+      - name: Upload assets to the release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: dist/*
+
+  pypi:
+    needs: [release-please, build]
+    if: needs.release-please.outputs.release_created == 'true' && vars.PUBLISH_TO_PYPI == 'true'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: pip install build && python -m build
+      - name: Publish to PyPI (trusted publishing)
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1

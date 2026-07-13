@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "backup-verify"
+version = "0.1.0"
+description = "Restores the latest backup into a scratch container on a schedule and runs smoke queries"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Fabio Cicerchia" }]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+]
+dependencies = ["pyyaml>=6.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.4", "build>=1.2"]
+
+[project.urls]
+Homepage = "https://github.com/fabiocicerchia/backup-verify"
+Issues = "https://github.com/fabiocicerchia/backup-verify/issues"
+Changelog = "https://github.com/fabiocicerchia/backup-verify/blob/main/CHANGELOG.md"
+
+[project.scripts]
+backup-verify = "backup_verify:main"
+
+[tool.setuptools]
+py-modules = ["backup_verify"]
+
+[tool.ruff]
+line-length = 100

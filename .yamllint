@@ -1,0 +1,6 @@
+# Pinned action refs carry a full 40-char commit SHA and the example plan has
+# long shell one-liners — both blow past 80 cols and can't be wrapped, so the
+# line-length rule is pure noise here. Everything else stays on the relaxed set.
+extends: relaxed
+rules:
+  line-length: disable

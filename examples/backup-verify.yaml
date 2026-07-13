@@ -1,0 +1,28 @@
+# A verification plan: how to fetch the latest backup, how to boot a scratch
+# database from it, and what must be true for the backup to count as good.
+fetch:
+  command: aws s3 cp "$(aws s3 ls s3://backups/db/ | sort | tail -1 | awk '{print "s3://backups/db/"$4}')" /work/dump.sql.gz
+
+restore:
+  image: postgres:16-alpine
+  env:
+    POSTGRES_PASSWORD: scratch
+  ready_command: pg_isready -U postgres
+  ready_timeout: 60
+  load_command: gunzip -c /work/dump.sql.gz | psql -U postgres
+
+checks:
+  - name: users table is populated
+    command: psql -U postgres -tAc "SELECT count(*) FROM users"
+    expect_min: 1000
+
+  - name: latest order is recent
+    command: psql -U postgres -tAc "SELECT extract(epoch from now() - max(created_at))/3600 FROM orders"
+    expect_max: 48        # newest order less than 48h old
+
+  - name: schema contains critical tables
+    command: psql -U postgres -tAc "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('users','orders','payments')"
+    expect: "3"
+
+notify:
+  heartbeat_url: https://hc-ping.com/your-uuid     # pinged only on success
