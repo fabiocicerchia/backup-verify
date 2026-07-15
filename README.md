@@ -12,6 +12,18 @@ smoke queries against it.** A backup that hasn't been restored is a hope, not
 a backup — this makes restore-testing a boring weekly cron instead of an
 incident-day discovery.
 
+## Install
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/fabiocicerchia/backup-verify/main/install.sh | bash
+```
+
+Or with pipx directly:
+
+```sh
+pipx install git+https://github.com/fabiocicerchia/backup-verify
+```
+
 ## How it works
 
 One YAML plan describes the loop
