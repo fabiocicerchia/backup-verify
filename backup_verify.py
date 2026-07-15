@@ -62,9 +62,26 @@ def append_history(path, record):
         fh.write(json.dumps(record) + "\n")
 
 
+def build_run_args(name, workdir, restore, network):
+    """docker-run argv (sans leading "docker") for the scratch container."""
+    env_args = []
+    for k, v in restore.get("env", {}).items():
+        env_args += ["-e", f"{k}={v}"]
+    limit_args = []
+    if mem := restore.get("memory"):
+        limit_args += ["--memory", str(mem)]
+    if cpus := restore.get("cpus"):
+        limit_args += ["--cpus", str(cpus)]
+    return [
+        "run", "-d", "--name", name, "--network", network,
+        "-v", f"{workdir}:/work", *env_args, *limit_args, restore["image"],
+    ]
+
+
 def run_plan(plan, keep=False, workdir=None):
     results = []
     name = f"backup-verify-{uuid.uuid4().hex[:8]}"
+    network = f"{name}-net"
     restore = plan["restore"]
     start = time.time()
 
@@ -75,11 +92,12 @@ def run_plan(plan, keep=False, workdir=None):
     # so shell=True is intentional here (and only here).
     subprocess.run(plan["fetch"]["command"], shell=True, check=True)  # nosec B602  # nosemgrep: python.lang.security.audit.subprocess-shell-true.subprocess-shell-true
 
-    env_args = []
-    for k, v in restore.get("env", {}).items():
-        env_args += ["-e", f"{k}={v}"]
+    # Isolated (--internal, no external egress) network per run: the container
+    # only needs to talk to itself over docker exec, and this keeps concurrent
+    # runs from ever sharing a network namespace.
+    docker(["network", "create", "--internal", network])
     print(f"backup-verify: starting scratch container ({restore['image']})")
-    docker(["run", "-d", "--name", name, "-v", f"{workdir}:/work", *env_args, restore["image"]])
+    docker(build_run_args(name, workdir, restore, network))
 
     try:
         deadline = time.time() + int(restore.get("ready_timeout", 60))
@@ -107,6 +125,7 @@ def run_plan(plan, keep=False, workdir=None):
     finally:
         if not keep:
             subprocess.run(["docker", "rm", "-f", name], capture_output=True)  # nosec B603 B607
+            subprocess.run(["docker", "network", "rm", network], capture_output=True)  # nosec B603 B607
 
     duration = time.time() - start
     failed = [r for r in results if r["status"] == "fail"]

@@ -30,7 +30,9 @@ One YAML plan describes the loop
 (see [`examples/backup-verify.yaml`](examples/backup-verify.yaml)):
 
 1. **fetch** — shell command that pulls the *latest* backup (S3, restic, …)
-1. **restore** — scratch container image, readiness probe, load command
+1. **restore** — scratch container image, readiness probe, load command, on an
+   isolated (`--internal`) per-run docker network; optional `memory`/`cpus`
+   limits
 1. **checks** — smoke queries with `expect` / `expect_min` / `expect_max`
    (row counts, data freshness, schema presence)
 1. **notify** — heartbeat URL pinged *only on success*
@@ -58,7 +60,7 @@ container is always torn down (`--keep` to inspect failures).
 - [x] Plan runner: fetch → restore → checks → heartbeat, JSON output
 - [x] MySQL/Mongo example plans (works today, needs documented recipes)
 - [x] Restore-duration tracking (RTO trend over time)
-- [ ] Isolated network for the scratch container; resource limits
+- [x] Isolated network for the scratch container; resource limits
 - [ ] Native restic/pgBackRest fetchers instead of raw shell
 
 ## Development
