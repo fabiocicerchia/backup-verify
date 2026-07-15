@@ -26,3 +26,4 @@ checks:
 
 notify:
   heartbeat_url: https://hc-ping.com/your-uuid     # pinged only on success
+  history_file: /var/lib/backup-verify/history.jsonl  # optional: RTO trend, one JSON line per run

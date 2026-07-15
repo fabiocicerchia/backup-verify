@@ -56,10 +56,17 @@ def evaluate(check, output):
         raise CheckFailure(f"{value} > max {check['expect_max']}")
 
 
+def append_history(path, record):
+    """Append one JSON-line record to the RTO history file (created if missing)."""
+    with open(path, "a") as fh:
+        fh.write(json.dumps(record) + "\n")
+
+
 def run_plan(plan, keep=False, workdir=None):
     results = []
     name = f"backup-verify-{uuid.uuid4().hex[:8]}"
     restore = plan["restore"]
+    start = time.time()
 
     workdir = workdir or tempfile.mkdtemp(prefix="backup-verify-")
     os.makedirs(workdir, exist_ok=True)
@@ -101,10 +108,18 @@ def run_plan(plan, keep=False, workdir=None):
         if not keep:
             subprocess.run(["docker", "rm", "-f", name], capture_output=True)  # nosec B603 B607
 
+    duration = time.time() - start
     failed = [r for r in results if r["status"] == "fail"]
-    if not failed and (hb := plan.get("notify", {}).get("heartbeat_url")):
+    ok = not failed
+    notify = plan.get("notify", {})
+    if ok and (hb := notify.get("heartbeat_url")):
         subprocess.run(["curl", "-fsS", "-m", "10", "-o", "/dev/null", hb], check=False)  # nosec B603 B607
-    return results, not failed
+    if history_file := notify.get("history_file"):
+        append_history(
+            history_file,
+            {"timestamp": time.time(), "duration_seconds": round(duration, 1), "ok": ok},
+        )
+    return results, ok, duration
 
 
 def main(argv=None):
@@ -122,12 +137,12 @@ def main(argv=None):
 
     with open(args.plan) as fh:
         plan = yaml.safe_load(fh)
-    results, ok = run_plan(plan, keep=args.keep)
+    results, ok, duration = run_plan(plan, keep=args.keep)
     if args.json:
-        json.dump({"ok": ok, "checks": results}, sys.stdout, indent=2)
+        json.dump({"ok": ok, "duration_seconds": round(duration, 1), "checks": results}, sys.stdout, indent=2)
     print(
         f"\nbackup-verify: {'PASS' if ok else 'FAIL'} "
-        f"({sum(r['status'] == 'pass' for r in results)}/{len(results)} checks)"
+        f"({sum(r['status'] == 'pass' for r in results)}/{len(results)} checks, {duration:.1f}s)"
     )
     return 0 if ok else 1
 

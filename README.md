@@ -34,7 +34,9 @@ One YAML plan describes the loop
 1. **checks** — smoke queries with `expect` / `expect_min` / `expect_max`
    (row counts, data freshness, schema presence)
 1. **notify** — heartbeat URL pinged *only on success*
-   (healthchecks.io-style dead-man switch: silence = broken backups)
+   (healthchecks.io-style dead-man switch: silence = broken backups); optional
+   `history_file` appends a `{timestamp, duration_seconds, ok}` JSON line per
+   run, so you can trend RTO over time
 
 ```console
 $ backup-verify run backup-verify.yaml
@@ -55,7 +57,7 @@ container is always torn down (`--keep` to inspect failures).
 
 - [x] Plan runner: fetch → restore → checks → heartbeat, JSON output
 - [x] MySQL/Mongo example plans (works today, needs documented recipes)
-- [ ] Restore-duration tracking (RTO trend over time)
+- [x] Restore-duration tracking (RTO trend over time)
 - [ ] Isolated network for the scratch container; resource limits
 - [ ] Native restic/pgBackRest fetchers instead of raw shell
 
