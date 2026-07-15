@@ -1,0 +1,25 @@
+# MongoDB variant: fetch a mongodump archive, restore into a scratch container, smoke-check it.
+fetch:
+  command: aws s3 cp "$(aws s3 ls s3://backups/mongo/ | sort | tail -1 | awk '{print "s3://backups/mongo/"$4}')" /work/dump.archive.gz
+
+restore:
+  image: mongo:7
+  ready_command: mongosh --quiet --eval "db.adminCommand('ping')"
+  ready_timeout: 60
+  load_command: gunzip -c /work/dump.archive.gz > /work/dump.archive && mongorestore --archive=/work/dump.archive --gzip=false
+
+checks:
+  - name: users collection is populated
+    command: mongosh --quiet --eval "db.getSiblingDB('app').users.countDocuments({})"
+    expect_min: 1000
+
+  - name: latest order is recent
+    command: mongosh --quiet --eval "(new Date() - db.getSiblingDB('app').orders.find().sort({created_at:-1}).limit(1).next().created_at) / 3600000"
+    expect_max: 48
+
+  - name: schema contains critical collections
+    command: mongosh --quiet --eval "db.getSiblingDB('app').getCollectionNames().filter(n => ['users','orders','payments'].includes(n)).length"
+    expect: "3"
+
+notify:
+  heartbeat_url: https://hc-ping.com/your-uuid     # pinged only on success

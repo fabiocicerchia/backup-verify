@@ -54,7 +54,7 @@ container is always torn down (`--keep` to inspect failures).
 ## Status & roadmap
 
 - [x] Plan runner: fetch → restore → checks → heartbeat, JSON output
-- [ ] MySQL/Mongo example plans (works today, needs documented recipes)
+- [x] MySQL/Mongo example plans (works today, needs documented recipes)
 - [ ] Restore-duration tracking (RTO trend over time)
 - [ ] Isolated network for the scratch container; resource limits
 - [ ] Native restic/pgBackRest fetchers instead of raw shell

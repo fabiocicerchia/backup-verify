@@ -1,0 +1,27 @@
+# MySQL variant: fetch a mysqldump, restore into a scratch container, smoke-check it.
+fetch:
+  command: aws s3 cp "$(aws s3 ls s3://backups/mysql/ | sort | tail -1 | awk '{print "s3://backups/mysql/"$4}')" /work/dump.sql.gz
+
+restore:
+  image: mysql:8
+  env:
+    MYSQL_ROOT_PASSWORD: scratch
+  ready_command: mysqladmin ping -h 127.0.0.1 -uroot -pscratch --silent
+  ready_timeout: 90
+  load_command: gunzip -c /work/dump.sql.gz | mysql -uroot -pscratch
+
+checks:
+  - name: users table is populated
+    command: mysql -uroot -pscratch -N -e "SELECT count(*) FROM app.users"
+    expect_min: 1000
+
+  - name: latest order is recent
+    command: mysql -uroot -pscratch -N -e "SELECT TIMESTAMPDIFF(HOUR, MAX(created_at), NOW()) FROM app.orders"
+    expect_max: 48
+
+  - name: schema contains critical tables
+    command: mysql -uroot -pscratch -N -e "SELECT count(*) FROM information_schema.tables WHERE table_schema='app' AND table_name IN ('users','orders','payments')"
+    expect: "3"
+
+notify:
+  heartbeat_url: https://hc-ping.com/your-uuid     # pinged only on success
