@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from backup_verify import CheckFailure, append_history, build_run_args, evaluate
+from backup_verify import CheckFailure, append_history, build_fetch_command, build_run_args, evaluate
 
 
 def test_exact_expectation():
@@ -23,6 +23,26 @@ def test_min_max_bounds():
 def test_non_numeric_output_for_numeric_check():
     with pytest.raises(CheckFailure, match="expected a number"):
         evaluate({"expect_min": 1}, "ERROR: relation does not exist")
+
+
+def test_build_fetch_command_defaults_to_shell_fallback():
+    assert build_fetch_command({"command": "cp x y"}, "/work") is None
+
+
+def test_build_fetch_command_restic():
+    fetch = {"type": "restic", "repository": "s3:s3.amazonaws.com/bucket", "snapshot": "abc123"}
+    argv = build_fetch_command(fetch, "/work")
+    assert argv == [
+        "restic", "-r", "s3:s3.amazonaws.com/bucket", "restore", "abc123", "--target", "/work",
+    ]
+
+
+def test_build_fetch_command_pgbackrest():
+    fetch = {"type": "pgbackrest", "stanza": "main", "extra_args": ["--delta"]}
+    argv = build_fetch_command(fetch, "/work")
+    assert argv == [
+        "pgbackrest", "--stanza=main", "--pg1-path=/work", "restore", "--delta",
+    ]
 
 
 def test_build_run_args_attaches_network_and_no_limits_by_default():

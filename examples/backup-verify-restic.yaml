@@ -1,0 +1,24 @@
+# Native restic fetcher instead of a raw shell pipeline: restic runs directly
+# (no shell), reading its password from RESTIC_PASSWORD (or --password-file).
+fetch:
+  type: restic
+  repository: s3:s3.amazonaws.com/backups/db
+  snapshot: latest
+  # password_file: /run/secrets/restic-password   # optional, else RESTIC_PASSWORD env
+
+restore:
+  image: postgres:16-alpine
+  env:
+    POSTGRES_PASSWORD: scratch
+  ready_command: pg_isready -U postgres
+  ready_timeout: 60
+  # path matches wherever the restic snapshot laid the dump under --target
+  load_command: gunzip -c /work/var/backups/dump.sql.gz | psql -U postgres
+
+checks:
+  - name: users table is populated
+    command: psql -U postgres -tAc "SELECT count(*) FROM users"
+    expect_min: 1000
+
+notify:
+  heartbeat_url: https://hc-ping.com/your-uuid     # pinged only on success

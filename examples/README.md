@@ -13,3 +13,7 @@
 - [`backup-verify-mongo.yaml`](backup-verify-mongo.yaml) — same loop against a
   `mongodump --archive` restored into `mongo:7` with `mongorestore`, checked
   with `mongosh --eval`.
+
+- [`backup-verify-restic.yaml`](backup-verify-restic.yaml) — `fetch.type:
+  restic` instead of a shell pipeline: runs `restic restore` directly (no
+  shell). `fetch.type: pgbackrest` works the same way for pgBackRest stanzas.

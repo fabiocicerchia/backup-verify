@@ -62,6 +62,26 @@ def append_history(path, record):
         fh.write(json.dumps(record) + "\n")
 
 
+def build_fetch_command(fetch, workdir):
+    """argv for a native fetcher (no shell), or None to fall back to `fetch.command`."""
+    kind = fetch.get("type", "shell")
+    if kind == "restic":
+        argv = [
+            "restic", "-r", fetch["repository"], "restore", fetch.get("snapshot", "latest"),
+            "--target", fetch.get("target", workdir),
+        ]
+        if password_file := fetch.get("password_file"):
+            argv += ["--password-file", password_file]
+        return argv
+    if kind == "pgbackrest":
+        argv = [
+            "pgbackrest", f"--stanza={fetch['stanza']}",
+            f"--pg1-path={fetch.get('pg1_path', workdir)}", "restore",
+        ]
+        return argv + list(fetch.get("extra_args", []))
+    return None
+
+
 def build_run_args(name, workdir, restore, network):
     """docker-run argv (sans leading "docker") for the scratch container."""
     env_args = []
@@ -88,9 +108,13 @@ def run_plan(plan, keep=False, workdir=None):
     workdir = workdir or tempfile.mkdtemp(prefix="backup-verify-")
     os.makedirs(workdir, exist_ok=True)
     print("backup-verify: fetching latest backup")
-    # ponytail: fetch is an arbitrary shell pipeline from the trusted plan file,
-    # so shell=True is intentional here (and only here).
-    subprocess.run(plan["fetch"]["command"], shell=True, check=True)  # nosec B602  # nosemgrep: python.lang.security.audit.subprocess-shell-true.subprocess-shell-true
+    fetch_argv = build_fetch_command(plan["fetch"], workdir)
+    if fetch_argv:
+        subprocess.run(fetch_argv, check=True)  # nosec B603
+    else:
+        # ponytail: fetch.command is an arbitrary shell pipeline from the trusted
+        # plan file, so shell=True is intentional here (and only here).
+        subprocess.run(plan["fetch"]["command"], shell=True, check=True)  # nosec B602  # nosemgrep: python.lang.security.audit.subprocess-shell-true.subprocess-shell-true
 
     # Isolated (--internal, no external egress) network per run: the container
     # only needs to talk to itself over docker exec, and this keeps concurrent

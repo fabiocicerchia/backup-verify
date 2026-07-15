@@ -29,7 +29,8 @@ pipx install git+https://github.com/fabiocicerchia/backup-verify
 One YAML plan describes the loop
 (see [`examples/backup-verify.yaml`](examples/backup-verify.yaml)):
 
-1. **fetch** — shell command that pulls the *latest* backup (S3, restic, …)
+1. **fetch** — shell command that pulls the *latest* backup (S3, …), or a
+   native `type: restic` / `type: pgbackrest` fetcher (no shell)
 1. **restore** — scratch container image, readiness probe, load command, on an
    isolated (`--internal`) per-run docker network; optional `memory`/`cpus`
    limits
@@ -61,7 +62,7 @@ container is always torn down (`--keep` to inspect failures).
 - [x] MySQL/Mongo example plans (works today, needs documented recipes)
 - [x] Restore-duration tracking (RTO trend over time)
 - [x] Isolated network for the scratch container; resource limits
-- [ ] Native restic/pgBackRest fetchers instead of raw shell
+- [x] Native restic/pgBackRest fetchers instead of raw shell
 
 ## Development
 
