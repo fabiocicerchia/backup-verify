@@ -56,14 +56,6 @@ backup-verify: PASS (3/3 checks)
 Schedule it weekly in CI or with `fabiocicerchia/cron-runner`; the scratch
 container is always torn down (`--keep` to inspect failures).
 
-## Status & roadmap
-
-- [x] Plan runner: fetch → restore → checks → heartbeat, JSON output
-- [x] MySQL/Mongo example plans (works today, needs documented recipes)
-- [x] Restore-duration tracking (RTO trend over time)
-- [x] Isolated network for the scratch container; resource limits
-- [x] Native restic/pgBackRest fetchers instead of raw shell
-
 ## Development
 
 `make dev` then `make test` / `make lint`.
