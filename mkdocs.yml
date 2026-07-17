@@ -14,6 +14,7 @@ theme:
 nav:
   - Home: README.md
   - Getting Started: getting-started.md
+  - Plan Reference: plan-reference.md
   - Architecture: architecture.md
 
 markdown_extensions:

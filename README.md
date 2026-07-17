@@ -27,7 +27,8 @@ pipx install git+https://github.com/fabiocicerchia/backup-verify
 ## How it works
 
 One YAML plan describes the loop
-(see [`examples/backup-verify.yaml`](examples/backup-verify.yaml)):
+(see [`examples/backup-verify.yaml`](examples/backup-verify.yaml), or the
+field-by-field [Plan Reference](docs/plan-reference.md)):
 
 1. **fetch** — shell command that pulls the *latest* backup (S3, …), or a
    native `type: restic` / `type: pgbackrest` fetcher (no shell)
