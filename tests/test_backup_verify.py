@@ -2,7 +2,13 @@ import json
 
 import pytest
 
-from backup_verify import CheckFailure, append_history, build_fetch_command, build_run_args, evaluate
+from backup_verify import (
+    CheckFailure,
+    append_history,
+    build_fetch_command,
+    build_run_args,
+    evaluate,
+)
 
 
 def test_exact_expectation():
@@ -30,10 +36,20 @@ def test_build_fetch_command_defaults_to_shell_fallback():
 
 
 def test_build_fetch_command_restic():
-    fetch = {"type": "restic", "repository": "s3:s3.amazonaws.com/bucket", "snapshot": "abc123"}
+    fetch = {
+        "type": "restic",
+        "repository": "s3:s3.amazonaws.com/bucket",
+        "snapshot": "abc123",
+    }
     argv = build_fetch_command(fetch, "/work")
     assert argv == [
-        "restic", "-r", "s3:s3.amazonaws.com/bucket", "restore", "abc123", "--target", "/work",
+        "restic",
+        "-r",
+        "s3:s3.amazonaws.com/bucket",
+        "restore",
+        "abc123",
+        "--target",
+        "/work",
     ]
 
 
@@ -41,7 +57,11 @@ def test_build_fetch_command_pgbackrest():
     fetch = {"type": "pgbackrest", "stanza": "main", "extra_args": ["--delta"]}
     argv = build_fetch_command(fetch, "/work")
     assert argv == [
-        "pgbackrest", "--stanza=main", "--pg1-path=/work", "restore", "--delta",
+        "pgbackrest",
+        "--stanza=main",
+        "--pg1-path=/work",
+        "restore",
+        "--delta",
     ]
 
 

@@ -67,16 +67,23 @@ def build_fetch_command(fetch, workdir):
     kind = fetch.get("type", "shell")
     if kind == "restic":
         argv = [
-            "restic", "-r", fetch["repository"], "restore", fetch.get("snapshot", "latest"),
-            "--target", fetch.get("target", workdir),
+            "restic",
+            "-r",
+            fetch["repository"],
+            "restore",
+            fetch.get("snapshot", "latest"),
+            "--target",
+            fetch.get("target", workdir),
         ]
         if password_file := fetch.get("password_file"):
             argv += ["--password-file", password_file]
         return argv
     if kind == "pgbackrest":
         argv = [
-            "pgbackrest", f"--stanza={fetch['stanza']}",
-            f"--pg1-path={fetch.get('pg1_path', workdir)}", "restore",
+            "pgbackrest",
+            f"--stanza={fetch['stanza']}",
+            f"--pg1-path={fetch.get('pg1_path', workdir)}",
+            "restore",
         ]
         return argv + list(fetch.get("extra_args", []))
     return None
@@ -93,8 +100,17 @@ def build_run_args(name, workdir, restore, network):
     if cpus := restore.get("cpus"):
         limit_args += ["--cpus", str(cpus)]
     return [
-        "run", "-d", "--name", name, "--network", network,
-        "-v", f"{workdir}:/work", *env_args, *limit_args, restore["image"],
+        "run",
+        "-d",
+        "--name",
+        name,
+        "--network",
+        network,
+        "-v",
+        f"{workdir}:/work",
+        *env_args,
+        *limit_args,
+        restore["image"],
     ]
 
 
@@ -114,7 +130,9 @@ def run_plan(plan, keep=False, workdir=None):
     else:
         # ponytail: fetch.command is an arbitrary shell pipeline from the trusted
         # plan file, so shell=True is intentional here (and only here).
-        subprocess.run(plan["fetch"]["command"], shell=True, check=True)  # nosec B602  # nosemgrep: python.lang.security.audit.subprocess-shell-true.subprocess-shell-true
+        subprocess.run(
+            plan["fetch"]["command"], shell=True, check=True
+        )  # nosec B602  # nosemgrep: python.lang.security.audit.subprocess-shell-true.subprocess-shell-true
 
     # Isolated (--internal, no external egress) network per run: the container
     # only needs to talk to itself over docker exec, and this keeps concurrent
@@ -144,23 +162,35 @@ def run_plan(plan, keep=False, workdir=None):
                 results.append({"name": check["name"], "status": "pass", "output": out})
                 print(f"  ✓ {check['name']} ({out})")
             except CheckFailure as e:
-                results.append({"name": check["name"], "status": "fail", "output": str(e)})
+                results.append(
+                    {"name": check["name"], "status": "fail", "output": str(e)}
+                )
                 print(f"  ✗ {check['name']}: {e}")
     finally:
         if not keep:
-            subprocess.run(["docker", "rm", "-f", name], capture_output=True)  # nosec B603 B607
-            subprocess.run(["docker", "network", "rm", network], capture_output=True)  # nosec B603 B607
+            subprocess.run(
+                ["docker", "rm", "-f", name], capture_output=True
+            )  # nosec B603 B607
+            subprocess.run(
+                ["docker", "network", "rm", network], capture_output=True
+            )  # nosec B603 B607
 
     duration = time.time() - start
     failed = [r for r in results if r["status"] == "fail"]
     ok = not failed
     notify = plan.get("notify", {})
     if ok and (hb := notify.get("heartbeat_url")):
-        subprocess.run(["curl", "-fsS", "-m", "10", "-o", "/dev/null", hb], check=False)  # nosec B603 B607
+        subprocess.run(
+            ["curl", "-fsS", "-m", "10", "-o", "/dev/null", hb], check=False
+        )  # nosec B603 B607
     if history_file := notify.get("history_file"):
         append_history(
             history_file,
-            {"timestamp": time.time(), "duration_seconds": round(duration, 1), "ok": ok},
+            {
+                "timestamp": time.time(),
+                "duration_seconds": round(duration, 1),
+                "ok": ok,
+            },
         )
     return results, ok, duration
 
@@ -174,7 +204,9 @@ def main(argv=None):
     sub = p.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run")
     r.add_argument("plan")
-    r.add_argument("--keep", action="store_true", help="keep the scratch container for inspection")
+    r.add_argument(
+        "--keep", action="store_true", help="keep the scratch container for inspection"
+    )
     r.add_argument("--json", action="store_true")
     args = p.parse_args(argv)
 
@@ -182,7 +214,11 @@ def main(argv=None):
         plan = yaml.safe_load(fh)
     results, ok, duration = run_plan(plan, keep=args.keep)
     if args.json:
-        json.dump({"ok": ok, "duration_seconds": round(duration, 1), "checks": results}, sys.stdout, indent=2)
+        json.dump(
+            {"ok": ok, "duration_seconds": round(duration, 1), "checks": results},
+            sys.stdout,
+            indent=2,
+        )
     print(
         f"\nbackup-verify: {'PASS' if ok else 'FAIL'} "
         f"({sum(r['status'] == 'pass' for r in results)}/{len(results)} checks, {duration:.1f}s)"
