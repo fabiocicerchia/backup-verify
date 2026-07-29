@@ -1,0 +1,3 @@
+[default.extend-words]
+# Recovery Time Objective — a standard backup/DR term, not a typo of "TO".
+RTO = "RTO"

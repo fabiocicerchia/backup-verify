@@ -130,9 +130,7 @@ def run_plan(plan, keep=False, workdir=None):
     else:
         # ponytail: fetch.command is an arbitrary shell pipeline from the trusted
         # plan file, so shell=True is intentional here (and only here).
-        subprocess.run(
-            plan["fetch"]["command"], shell=True, check=True
-        )  # nosec B602  # nosemgrep: python.lang.security.audit.subprocess-shell-true.subprocess-shell-true
+        subprocess.run(plan["fetch"]["command"], shell=True, check=True)  # nosec B602  # nosemgrep: python.lang.security.audit.subprocess-shell-true.subprocess-shell-true
 
     # Isolated (--internal, no external egress) network per run: the container
     # only needs to talk to itself over docker exec, and this keeps concurrent
@@ -162,27 +160,19 @@ def run_plan(plan, keep=False, workdir=None):
                 results.append({"name": check["name"], "status": "pass", "output": out})
                 print(f"  ✓ {check['name']} ({out})")
             except CheckFailure as e:
-                results.append(
-                    {"name": check["name"], "status": "fail", "output": str(e)}
-                )
+                results.append({"name": check["name"], "status": "fail", "output": str(e)})
                 print(f"  ✗ {check['name']}: {e}")
     finally:
         if not keep:
-            subprocess.run(
-                ["docker", "rm", "-f", name], capture_output=True
-            )  # nosec B603 B607
-            subprocess.run(
-                ["docker", "network", "rm", network], capture_output=True
-            )  # nosec B603 B607
+            subprocess.run(["docker", "rm", "-f", name], capture_output=True, check=False)  # nosec B603 B607
+            subprocess.run(["docker", "network", "rm", network], capture_output=True, check=False)  # nosec B603 B607
 
     duration = time.time() - start
     failed = [r for r in results if r["status"] == "fail"]
     ok = not failed
     notify = plan.get("notify", {})
     if ok and (hb := notify.get("heartbeat_url")):
-        subprocess.run(
-            ["curl", "-fsS", "-m", "10", "-o", "/dev/null", hb], check=False
-        )  # nosec B603 B607
+        subprocess.run(["curl", "-fsS", "-m", "10", "-o", "/dev/null", hb], check=False)  # nosec B603 B607
     if history_file := notify.get("history_file"):
         append_history(
             history_file,
@@ -204,9 +194,7 @@ def main(argv=None):
     sub = p.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run")
     r.add_argument("plan")
-    r.add_argument(
-        "--keep", action="store_true", help="keep the scratch container for inspection"
-    )
+    r.add_argument("--keep", action="store_true", help="keep the scratch container for inspection")
     r.add_argument("--json", action="store_true")
     args = p.parse_args(argv)
 
