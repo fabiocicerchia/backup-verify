@@ -60,6 +60,20 @@ container is always torn down (`--keep` to inspect failures).
 
 `make dev` then `make test` / `make lint`.
 
+## Usage
+
+```sh
+backup-verify run backup-verify.yaml
+backup-verify run backup-verify.yaml --keep   # keep the scratch container to inspect failures
+backup-verify run backup-verify.yaml --json   # machine-readable output
+```
+
+More in [`docs/getting-started.md`](docs/getting-started.md).
+
+## Documentation
+
+Full docs live in [`docs/`](docs/). Runnable examples live in [`examples/`](examples/).
+
 ## Support
 
 Need help implementing this? [Get in touch](https://fabiocicerchia.it/contact).

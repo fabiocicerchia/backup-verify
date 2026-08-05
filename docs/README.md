@@ -1,7 +1,5 @@
 # Documentation
 
-- [Getting Started](getting-started.md) — install and run your first plan.
-- [Plan Reference](plan-reference.md) — every field in `fetch` / `restore` / `checks` / `notify`, annotated.
-- [Architecture](architecture.md) — how the fetch → restore → checks → notify loop works.
-
-Runnable examples live in [`../examples/`](../examples/).
+- [Architecture](architecture.md) — high-level design and components.
+- [Getting Started](getting-started.md) — setup, first run and day-to-day use.
+- [Plan reference](plan-reference.md) — every field of the plan file.
