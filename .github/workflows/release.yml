@@ -44,7 +44,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Build sdist and wheel
-        run: pip install build && python -m build
+        run: |
+          pip install --require-hashes -r requirements-release.txt
+          python -m build
       - name: Upload assets to the release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228  # v3.0.2
         with:
@@ -64,6 +66,8 @@ jobs:
         with:
           python-version: "3.12"
       - name: Build sdist and wheel
-        run: pip install build && python -m build
+        run: |
+          pip install --require-hashes -r requirements-release.txt
+          python -m build
       - name: Publish to PyPI (trusted publishing)
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
