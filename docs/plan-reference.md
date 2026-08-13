@@ -35,6 +35,7 @@ checks:
 notify:
   heartbeat_url: https://hc-ping.com/your-uuid   # pinged only if all checks pass
   history_file: /var/lib/backup-verify/history.jsonl  # one JSON line appended per run
+  on_failure: 'curl -fsS -m 10 "https://alert.example/notify?msg=$BACKUP_VERIFY_STATUS"'  # shell command run on any failure
 ```
 
 ## `fetch`
@@ -87,6 +88,19 @@ A run only counts as `PASS` if every check passes.
 | Field           | Meaning                                                       |
 |-----------------|------------------------------------------------------------------|
 | `heartbeat_url` | GET-pinged only when all checks pass (dead-man switch, e.g. healthchecks.io) |
-| `history_file`  | Appends one `{timestamp, duration_seconds, ok}` JSON line per run |
+| `history_file`  | Appends one `{timestamp, duration_seconds, ok}` JSON line per run (an `error` field is added when the run threw) |
+| `on_failure`    | Shell pipeline run when any check fails **or** the run throws (best-effort, `shell=True` like `fetch.command`) |
 
-Both are optional.
+All are optional. `heartbeat_url` fires only on success — silence is the signal
+— while `on_failure` is its counterpart, firing only on failure. The
+`on_failure` command receives context through environment variables:
+
+| Env var                       | Value                                                       |
+|-------------------------------|--------------------------------------------------------------|
+| `BACKUP_VERIFY_STATUS`        | `fail` (a check failed) or `error` (the run threw)          |
+| `BACKUP_VERIFY_FAILED_CHECKS` | Comma-separated names of failed checks (empty on `error`)   |
+| `BACKUP_VERIFY_ERROR`         | The exception string (empty when checks merely failed)      |
+| `BACKUP_VERIFY_DURATION`      | Run duration in seconds                                     |
+
+`on_failure` is best-effort: a notifier that errors or exits non-zero never
+masks the real failure or changes the exit code.

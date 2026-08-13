@@ -27,3 +27,7 @@ checks:
 notify:
   heartbeat_url: https://hc-ping.com/your-uuid     # pinged only on success
   history_file: /var/lib/backup-verify/history.jsonl  # optional: RTO trend, one JSON line per run
+  # optional: shell command run only on failure (any check failing, or the run
+  # throwing). Context arrives via BACKUP_VERIFY_STATUS / _FAILED_CHECKS / _ERROR
+  # / _DURATION. Best-effort — a broken notifier never changes the exit code.
+  on_failure: 'curl -fsS -m 10 "https://alert.example/notify?status=$BACKUP_VERIFY_STATUS&checks=$BACKUP_VERIFY_FAILED_CHECKS"'
