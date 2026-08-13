@@ -4,6 +4,13 @@ This file is maintained automatically by
 [release-please](https://github.com/googleapis/release-please) from Conventional
 Commit messages — don't edit it by hand.
 
+## [0.1.2](https://github.com/fabiocicerchia/backup-verify/compare/v0.1.1...v0.1.2) (2026-08-13)
+
+
+### Bug Fixes
+
+* security and code-quality findings ([#33](https://github.com/fabiocicerchia/backup-verify/issues/33)) ([14bb728](https://github.com/fabiocicerchia/backup-verify/commit/14bb72856774b21c4f180d99aed708022f3a427e))
+
 ## [0.1.1](https://github.com/fabiocicerchia/backup-verify/compare/v0.1.0...v0.1.1) (2026-08-06)
 
 
