@@ -176,7 +176,7 @@ def test_failed_check_runs_on_failure_with_check_name(tmp_path, monkeypatch):
         {"on_failure": "ON_FAILURE_CMD"},
     )
 
-    results, ok, _ = run_plan(plan, workdir=str(tmp_path / "work"))
+    _results, ok, _ = run_plan(plan, workdir=str(tmp_path / "work"))
 
     assert ok is False
     hook = on_failure_calls(calls)
