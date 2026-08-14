@@ -4,6 +4,13 @@ This file is maintained automatically by
 [release-please](https://github.com/googleapis/release-please) from Conventional
 Commit messages — don't edit it by hand.
 
+## [0.2.0](https://github.com/fabiocicerchia/backup-verify/compare/v0.1.2...v0.2.0) (2026-08-14)
+
+
+### Features
+
+* **notify:** record failures in history and add on_failure hook ([#36](https://github.com/fabiocicerchia/backup-verify/issues/36)) ([2130b26](https://github.com/fabiocicerchia/backup-verify/commit/2130b265fbcafca1904fca8f78112cb92e1f0055))
+
 ## [0.1.2](https://github.com/fabiocicerchia/backup-verify/compare/v0.1.1...v0.1.2) (2026-08-13)
 
 
