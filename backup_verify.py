@@ -62,6 +62,33 @@ def append_history(path, record):
         fh.write(json.dumps(record) + "\n")
 
 
+def run_failure_hook(notify, status, failed_checks, error, duration):
+    """Best-effort `notify.on_failure` shell command; symmetric with `fetch.command`.
+
+    Fired when checks fail (status=fail) or the run blew up (status=error). Context
+    is handed to the command via env vars. Like the heartbeat ping, this is strictly
+    best-effort: a broken notifier must never mask the real failure or change the
+    exit code, so anything it raises is swallowed here.
+    """
+    command = notify.get("on_failure")
+    if not command:
+        return
+    env = {
+        **os.environ,
+        "BACKUP_VERIFY_STATUS": status,
+        "BACKUP_VERIFY_FAILED_CHECKS": ",".join(failed_checks),
+        "BACKUP_VERIFY_ERROR": error,
+        "BACKUP_VERIFY_DURATION": f"{duration:.1f}",
+    }
+    try:
+        # ponytail: on_failure is an arbitrary shell pipeline from the same trusted
+        # plan file as fetch.command, so shell=True is intentional here too. check=False
+        # keeps a failing notifier from ever changing the run's outcome.
+        subprocess.run(command, shell=True, check=False, env=env)  # nosec B602  # nosemgrep: python.lang.security.audit.subprocess-shell-true.subprocess-shell-true
+    except Exception:
+        pass
+
+
 def build_fetch_command(fetch, workdir):
     """argv for a native fetcher (no shell), or None to fall back to `fetch.command`."""
     kind = fetch.get("type", "shell")
@@ -119,69 +146,85 @@ def run_plan(plan, keep=False, workdir=None):
     name = f"backup-verify-{uuid.uuid4().hex[:8]}"
     network = f"{name}-net"
     restore = plan["restore"]
+    notify = plan.get("notify", {})
     start = time.time()
 
-    workdir = workdir or tempfile.mkdtemp(prefix="backup-verify-")
-    os.makedirs(workdir, exist_ok=True)
-    print("backup-verify: fetching latest backup")
-    fetch_argv = build_fetch_command(plan["fetch"], workdir)
-    if fetch_argv:
-        subprocess.run(fetch_argv, check=True)  # nosec B603
-    else:
-        # ponytail: fetch.command is an arbitrary shell pipeline from the trusted
-        # plan file, so shell=True is intentional here (and only here).
-        subprocess.run(plan["fetch"]["command"], shell=True, check=True)  # nosec B602  # nosemgrep: python.lang.security.audit.subprocess-shell-true.subprocess-shell-true
+    def append_run_history(ok, error=None):
+        if history_file := notify.get("history_file"):
+            record = {
+                "timestamp": time.time(),
+                "duration_seconds": round(time.time() - start, 1),
+                "ok": ok,
+            }
+            if error is not None:
+                record["error"] = error
+            append_history(history_file, record)
 
-    # Isolated (--internal, no external egress) network per run: the container
-    # only needs to talk to itself over docker exec, and this keeps concurrent
-    # runs from ever sharing a network namespace.
-    docker(["network", "create", "--internal", network])
-    print(f"backup-verify: starting scratch container ({restore['image']})")
-    docker(build_run_args(name, workdir, restore, network))
-
+    # Everything that can throw — fetch, container boot, readiness, load, checks —
+    # lives inside this try so a failure is *recorded* (history + on_failure hook)
+    # rather than swallowed or leaked. We re-raise afterwards so the CLI still exits
+    # non-zero and run_plan() callers keep seeing the exception.
     try:
-        deadline = time.time() + int(restore.get("ready_timeout", 60))
-        while True:
-            try:
-                docker(["exec", name, "sh", "-c", restore["ready_command"]])
-                break
-            except subprocess.CalledProcessError:
-                if time.time() > deadline:
-                    raise CheckFailure("scratch container never became ready")
-                time.sleep(2)
+        workdir = workdir or tempfile.mkdtemp(prefix="backup-verify-")
+        os.makedirs(workdir, exist_ok=True)
+        print("backup-verify: fetching latest backup")
+        fetch_argv = build_fetch_command(plan["fetch"], workdir)
+        if fetch_argv:
+            subprocess.run(fetch_argv, check=True)  # nosec B603
+        else:
+            # ponytail: fetch.command is an arbitrary shell pipeline from the trusted
+            # plan file, so shell=True is intentional. notify.on_failure is the only
+            # other place we do this, and for the same reason.
+            subprocess.run(plan["fetch"]["command"], shell=True, check=True)  # nosec B602  # nosemgrep: python.lang.security.audit.subprocess-shell-true.subprocess-shell-true
 
-        print("backup-verify: loading dump")
-        docker(["exec", name, "sh", "-c", restore["load_command"]])
+        # Isolated (--internal, no external egress) network per run: the container
+        # only needs to talk to itself over docker exec, and this keeps concurrent
+        # runs from ever sharing a network namespace.
+        docker(["network", "create", "--internal", network])
+        print(f"backup-verify: starting scratch container ({restore['image']})")
+        docker(build_run_args(name, workdir, restore, network))
 
-        for check in plan.get("checks", []):
-            out = docker(["exec", name, "sh", "-c", check["command"]])
-            try:
-                evaluate(check, out)
-                results.append({"name": check["name"], "status": "pass", "output": out})
-                print(f"  ✓ {check['name']} ({out})")
-            except CheckFailure as e:
-                results.append({"name": check["name"], "status": "fail", "output": str(e)})
-                print(f"  ✗ {check['name']}: {e}")
-    finally:
-        if not keep:
-            subprocess.run(["docker", "rm", "-f", name], capture_output=True, check=False)  # nosec B603 B607
-            subprocess.run(["docker", "network", "rm", network], capture_output=True, check=False)  # nosec B603 B607
+        try:
+            deadline = time.time() + int(restore.get("ready_timeout", 60))
+            while True:
+                try:
+                    docker(["exec", name, "sh", "-c", restore["ready_command"]])
+                    break
+                except subprocess.CalledProcessError:
+                    if time.time() > deadline:
+                        raise CheckFailure("scratch container never became ready")
+                    time.sleep(2)
+
+            print("backup-verify: loading dump")
+            docker(["exec", name, "sh", "-c", restore["load_command"]])
+
+            for check in plan.get("checks", []):
+                out = docker(["exec", name, "sh", "-c", check["command"]])
+                try:
+                    evaluate(check, out)
+                    results.append({"name": check["name"], "status": "pass", "output": out})
+                    print(f"  ✓ {check['name']} ({out})")
+                except CheckFailure as e:
+                    results.append({"name": check["name"], "status": "fail", "output": str(e)})
+                    print(f"  ✗ {check['name']}: {e}")
+        finally:
+            if not keep:
+                subprocess.run(["docker", "rm", "-f", name], capture_output=True, check=False)  # nosec B603 B607
+                subprocess.run(["docker", "network", "rm", network], capture_output=True, check=False)  # nosec B603 B607
+    except Exception as e:
+        duration = time.time() - start
+        append_run_history(False, error=str(e))
+        run_failure_hook(notify, "error", [], str(e), duration)
+        raise
 
     duration = time.time() - start
     failed = [r for r in results if r["status"] == "fail"]
     ok = not failed
-    notify = plan.get("notify", {})
     if ok and (hb := notify.get("heartbeat_url")):
         subprocess.run(["curl", "-fsS", "-m", "10", "-o", "/dev/null", hb], check=False)  # nosec B603 B607
-    if history_file := notify.get("history_file"):
-        append_history(
-            history_file,
-            {
-                "timestamp": time.time(),
-                "duration_seconds": round(duration, 1),
-                "ok": ok,
-            },
-        )
+    if not ok:
+        run_failure_hook(notify, "fail", [r["name"] for r in failed], "", duration)
+    append_run_history(ok)
     return results, ok, duration
 
 

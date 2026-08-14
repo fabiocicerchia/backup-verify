@@ -40,7 +40,10 @@ field-by-field [Plan Reference](docs/plan-reference.md)):
 1. **notify** — heartbeat URL pinged *only on success*
    (healthchecks.io-style dead-man switch: silence = broken backups); optional
    `history_file` appends a `{timestamp, duration_seconds, ok}` JSON line per
-   run, so you can trend RTO over time
+   run, so you can trend RTO over time; optional `on_failure` shell command run
+   *only on failure* (any check failing or the run throwing), handed
+   `BACKUP_VERIFY_STATUS` / `BACKUP_VERIFY_FAILED_CHECKS` / `BACKUP_VERIFY_ERROR`
+   / `BACKUP_VERIFY_DURATION` — so you don't have to wrap the run yourself
 
 ```console
 $ backup-verify run backup-verify.yaml
