@@ -85,8 +85,10 @@ def run_failure_hook(notify, status, failed_checks, error, duration):
         # plan file as fetch.command, so shell=True is intentional here too. check=False
         # keeps a failing notifier from ever changing the run's outcome.
         subprocess.run(command, shell=True, check=False, env=env)  # nosec B602  # nosemgrep: python.lang.security.audit.subprocess-shell-true.subprocess-shell-true
-    except Exception:
-        pass
+    except OSError as e:
+        # A notifier that cannot even be spawned still must not change the
+        # run's outcome — say so on stderr and carry on.
+        print(f"backup-verify: could not run notify.on_failure: {e}", file=sys.stderr)
 
 
 def build_fetch_command(fetch, workdir):
@@ -210,7 +212,9 @@ def run_plan(plan, keep=False, workdir=None):
         finally:
             if not keep:
                 subprocess.run(["docker", "rm", "-f", name], capture_output=True, check=False)  # nosec B603 B607
-                subprocess.run(["docker", "network", "rm", network], capture_output=True, check=False)  # nosec B603 B607
+                subprocess.run(
+                    ["docker", "network", "rm", network], capture_output=True, check=False
+                )  # nosec B603 B607
     except Exception as e:
         duration = time.time() - start
         append_run_history(False, error=str(e))
