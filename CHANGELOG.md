@@ -4,6 +4,18 @@ This file is maintained automatically by
 [release-please](https://github.com/googleapis/release-please) from Conventional
 Commit messages — don't edit it by hand.
 
+## [0.3.0](https://github.com/fabiocicerchia/backup-verify/compare/v0.2.0...v0.3.0) (2026-08-25)
+
+
+### Features
+
+* **docs:** build the docs site in Actions and drop Read the Docs ([#44](https://github.com/fabiocicerchia/backup-verify/issues/44)) ([148d7f3](https://github.com/fabiocicerchia/backup-verify/commit/148d7f34e206be0ccad8b113cc1711dd682f6a7c))
+
+
+### Bug Fixes
+
+* **ci:** compute the next release PR after the draft is published ([#41](https://github.com/fabiocicerchia/backup-verify/issues/41)) ([556d351](https://github.com/fabiocicerchia/backup-verify/commit/556d351fd61b108b7ed7111a08b9a17761a404a6))
+
 ## [0.2.0](https://github.com/fabiocicerchia/backup-verify/compare/v0.1.2...v0.2.0) (2026-08-14)
 
 
