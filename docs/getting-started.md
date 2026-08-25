@@ -13,7 +13,7 @@ pip install backup-verify        # or: make dev  (editable + dev deps)
 
 ## Run
 
-Write a plan (see [`../examples/backup-verify.yaml`](../examples/backup-verify.yaml))
+Write a plan (see [`../examples/backup-verify.yaml`](https://github.com/fabiocicerchia/backup-verify/blob/main/examples/backup-verify.yaml))
 describing the fetch → restore → checks → notify loop, then:
 
 ```sh
