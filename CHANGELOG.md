@@ -4,6 +4,13 @@ This file is maintained automatically by
 [release-please](https://github.com/googleapis/release-please) from Conventional
 Commit messages — don't edit it by hand.
 
+## [0.3.1](https://github.com/fabiocicerchia/backup-verify/compare/v0.3.0...v0.3.1) (2026-08-29)
+
+
+### Bug Fixes
+
+* unblock quality and clear the Scorecard pinned-dependencies finding ([#53](https://github.com/fabiocicerchia/backup-verify/issues/53)) ([c1794bf](https://github.com/fabiocicerchia/backup-verify/commit/c1794bf5a5d35ee49db2dcc1150e5a954cdeba50))
+
 ## [0.3.0](https://github.com/fabiocicerchia/backup-verify/compare/v0.2.0...v0.3.0) (2026-08-25)
 
 
