@@ -11,6 +11,7 @@ backup is real; anything else = you found out today, not during an incident.
 
 import argparse
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -25,6 +26,9 @@ import yaml
 CONTAINER_WORKDIR = "/work"
 DEFAULT_READY_TIMEOUT_SECONDS = 60
 READY_POLL_INTERVAL_SECONDS = 2
+
+# Diagnostics go here; the run's own report stays on stdout.
+logger = logging.getLogger("backup-verify")
 
 
 class CheckFailure(Exception):
@@ -108,8 +112,8 @@ def run_failure_hook(notify, status, failed_checks, error, duration):
         subprocess.run(command, shell=True, check=False, env=env)  # nosec B602  # nosemgrep: python.lang.security.audit.subprocess-shell-true.subprocess-shell-true
     except OSError as e:
         # A notifier that cannot even be spawned still must not change the
-        # run's outcome — say so on stderr and carry on.
-        print(f"backup-verify: could not run notify.on_failure: {e}", file=sys.stderr)
+        # run's outcome — say so and carry on.
+        logger.warning("could not run notify.on_failure: %s", e)
 
 
 def restic_argv(fetch, workdir):
@@ -268,6 +272,7 @@ def run_plan(plan, keep=False, workdir=None):
 
 
 def main(argv=None):
+    logging.basicConfig(format="backup-verify: %(message)s", stream=sys.stderr, level=logging.INFO)
     parser = argparse.ArgumentParser(
         prog="backup-verify",
         description=__doc__,
