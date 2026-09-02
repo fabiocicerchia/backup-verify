@@ -112,31 +112,41 @@ def run_failure_hook(notify, status, failed_checks, error, duration):
         print(f"backup-verify: could not run notify.on_failure: {e}", file=sys.stderr)
 
 
+def restic_argv(fetch, workdir):
+    """argv for `fetch.type: restic`."""
+    argv = [
+        "restic",
+        "-r",
+        fetch["repository"],
+        "restore",
+        fetch.get("snapshot", "latest"),
+        "--target",
+        fetch.get("target", workdir),
+    ]
+    if password_file := fetch.get("password_file"):
+        argv += ["--password-file", password_file]
+    return argv
+
+
+def pgbackrest_argv(fetch, workdir):
+    """argv for `fetch.type: pgbackrest`."""
+    argv = [
+        "pgbackrest",
+        f"--stanza={fetch['stanza']}",
+        f"--pg1-path={fetch.get('pg1_path', workdir)}",
+        "restore",
+    ]
+    return argv + list(fetch.get("extra_args", []))
+
+
+# A new native fetcher is a function plus a row here, not another branch.
+FETCHERS = {"restic": restic_argv, "pgbackrest": pgbackrest_argv}
+
+
 def build_fetch_command(fetch, workdir):
     """argv for a native fetcher (no shell), or None to fall back to `fetch.command`."""
-    kind = fetch.get("type", "shell")
-    if kind == "restic":
-        argv = [
-            "restic",
-            "-r",
-            fetch["repository"],
-            "restore",
-            fetch.get("snapshot", "latest"),
-            "--target",
-            fetch.get("target", workdir),
-        ]
-        if password_file := fetch.get("password_file"):
-            argv += ["--password-file", password_file]
-        return argv
-    if kind == "pgbackrest":
-        argv = [
-            "pgbackrest",
-            f"--stanza={fetch['stanza']}",
-            f"--pg1-path={fetch.get('pg1_path', workdir)}",
-            "restore",
-        ]
-        return argv + list(fetch.get("extra_args", []))
-    return None
+    build_argv = FETCHERS.get(fetch.get("type", "shell"))
+    return build_argv(fetch, workdir) if build_argv else None
 
 
 def build_run_args(name, workdir, restore, network):
@@ -164,6 +174,47 @@ def build_run_args(name, workdir, restore, network):
     ]
 
 
+def fetch_backup(fetch, workdir):
+    """Pull the latest backup into workdir, natively or through `fetch.command`."""
+    print("backup-verify: fetching latest backup")
+    fetch_argv = build_fetch_command(fetch, workdir)
+    if fetch_argv:
+        subprocess.run(fetch_argv, check=True)  # nosec B603
+        return
+    # ponytail: fetch.command is an arbitrary shell pipeline from the trusted
+    # plan file, so shell=True is intentional. notify.on_failure is the only
+    # other place we do this, and for the same reason.
+    subprocess.run(fetch["command"], shell=True, check=True)  # nosec B602  # nosemgrep: python.lang.security.audit.subprocess-shell-true.subprocess-shell-true
+
+
+def wait_until_ready(name, restore):
+    """Poll `restore.ready_command` until it exits 0, or give up at ready_timeout."""
+    deadline = time.time() + int(restore.get("ready_timeout", DEFAULT_READY_TIMEOUT_SECONDS))
+    while True:
+        try:
+            docker(["exec", name, "sh", "-c", restore["ready_command"]])
+            return
+        except subprocess.CalledProcessError:
+            if time.time() > deadline:
+                raise CheckFailure("scratch container never became ready")
+            time.sleep(READY_POLL_INTERVAL_SECONDS)
+
+
+def run_checks(name, checks):
+    """Run every smoke check inside the scratch container; one result record each."""
+    results = []
+    for check in checks:
+        output = docker(["exec", name, "sh", "-c", check["command"]])
+        try:
+            evaluate(check, output)
+            results.append({"name": check["name"], "status": "pass", "output": output})
+            print(f"  ✓ {check['name']} ({output})")
+        except CheckFailure as e:
+            results.append({"name": check["name"], "status": "fail", "output": str(e)})
+            print(f"  ✗ {check['name']}: {e}")
+    return results
+
+
 def run_plan(plan, keep=False, workdir=None):
     results = []
     name = f"backup-verify-{uuid.uuid4().hex[:8]}"
@@ -179,15 +230,7 @@ def run_plan(plan, keep=False, workdir=None):
     try:
         workdir = workdir or tempfile.mkdtemp(prefix="backup-verify-")
         os.makedirs(workdir, exist_ok=True)
-        print("backup-verify: fetching latest backup")
-        fetch_argv = build_fetch_command(plan["fetch"], workdir)
-        if fetch_argv:
-            subprocess.run(fetch_argv, check=True)  # nosec B603
-        else:
-            # ponytail: fetch.command is an arbitrary shell pipeline from the trusted
-            # plan file, so shell=True is intentional. notify.on_failure is the only
-            # other place we do this, and for the same reason.
-            subprocess.run(plan["fetch"]["command"], shell=True, check=True)  # nosec B602  # nosemgrep: python.lang.security.audit.subprocess-shell-true.subprocess-shell-true
+        fetch_backup(plan["fetch"], workdir)
 
         # Isolated (--internal, no external egress) network per run: the container
         # only needs to talk to itself over docker exec, and this keeps concurrent
@@ -197,30 +240,10 @@ def run_plan(plan, keep=False, workdir=None):
         docker(build_run_args(name, workdir, restore, network))
 
         try:
-            deadline = time.time() + int(
-                restore.get("ready_timeout", DEFAULT_READY_TIMEOUT_SECONDS)
-            )
-            while True:
-                try:
-                    docker(["exec", name, "sh", "-c", restore["ready_command"]])
-                    break
-                except subprocess.CalledProcessError:
-                    if time.time() > deadline:
-                        raise CheckFailure("scratch container never became ready")
-                    time.sleep(READY_POLL_INTERVAL_SECONDS)
-
+            wait_until_ready(name, restore)
             print("backup-verify: loading dump")
             docker(["exec", name, "sh", "-c", restore["load_command"]])
-
-            for check in plan.get("checks", []):
-                output = docker(["exec", name, "sh", "-c", check["command"]])
-                try:
-                    evaluate(check, output)
-                    results.append({"name": check["name"], "status": "pass", "output": output})
-                    print(f"  ✓ {check['name']} ({output})")
-                except CheckFailure as e:
-                    results.append({"name": check["name"], "status": "fail", "output": str(e)})
-                    print(f"  ✗ {check['name']}: {e}")
+            results = run_checks(name, plan.get("checks", []))
         finally:
             if not keep:
                 subprocess.run(["docker", "rm", "-f", name], capture_output=True, check=False)  # nosec B603 B607
