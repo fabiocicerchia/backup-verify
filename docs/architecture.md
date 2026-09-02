@@ -32,9 +32,13 @@ teardown ── scratch container removed (unless --keep)
 
 ## Components
 
-- **Plan parser** — loads and validates the YAML plan.
-- **Runner** — executes the fetch → restore → checks → notify stages.
-- **Reporter** — human-readable or `--json` output.
+- **Plan parser** — `main()` loads the YAML plan; an unreadable or unparseable
+  plan is an error message and an exit code, not a traceback.
+- **Runner** — `run_plan()` sequences the stages, one function each:
+  `fetch_backup` → `build_run_args` → `wait_until_ready` → `run_checks`.
+  Native fetchers (`restic`, `pgbackrest`) are rows in the `FETCHERS` table.
+- **Reporter** — human-readable or `--json` output on stdout; diagnostics go
+  to the `backup-verify` logger on stderr.
 
 ## Decisions
 
