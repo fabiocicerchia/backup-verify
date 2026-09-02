@@ -15,6 +15,16 @@ from backup_verify import (
 )
 
 
+def test_missing_plan_file_exits_noinput(tmp_path):
+    assert backup_verify.main(["run", str(tmp_path / "nope.yaml")]) == backup_verify.EXIT_NOINPUT
+
+
+def test_unparseable_plan_exits_dataerr(tmp_path):
+    bad_plan = tmp_path / "bad.yaml"
+    bad_plan.write_text("fetch: [1, 2\nrestore: }\n")
+    assert backup_verify.main(["run", str(bad_plan)]) == backup_verify.EXIT_DATAERR
+
+
 def test_exact_expectation():
     evaluate({"expect": "3"}, "3")
     with pytest.raises(CheckFailure):

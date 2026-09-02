@@ -27,6 +27,13 @@ CONTAINER_WORKDIR = "/work"
 DEFAULT_READY_TIMEOUT_SECONDS = 60
 READY_POLL_INTERVAL_SECONDS = 2
 
+# sysexits(3). 0/1 are the verdict the README documents; the rest say what went
+# wrong with the plan, so a bad plan is an error message and not a traceback.
+EXIT_OK = 0
+EXIT_CHECKS_FAILED = 1
+EXIT_DATAERR = 65
+EXIT_NOINPUT = 66
+
 # Diagnostics go here; the run's own report stays on stdout.
 logger = logging.getLogger("backup-verify")
 
@@ -287,8 +294,16 @@ def main(argv=None):
     run_cmd.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
 
-    with open(args.plan) as fh:
-        plan = yaml.safe_load(fh)
+    try:
+        with open(args.plan) as fh:
+            plan = yaml.safe_load(fh)
+    except OSError as e:
+        logger.error("cannot read plan %s: %s", args.plan, e.strerror)
+        return EXIT_NOINPUT
+    except yaml.YAMLError as e:
+        logger.error("plan %s is not valid YAML: %s", args.plan, e)
+        return EXIT_DATAERR
+
     results, ok, duration = run_plan(plan, keep=args.keep)
     if args.json:
         json.dump(
@@ -300,7 +315,7 @@ def main(argv=None):
         f"\nbackup-verify: {'PASS' if ok else 'FAIL'} "
         f"({sum(r['status'] == 'pass' for r in results)}/{len(results)} checks, {duration:.1f}s)"
     )
-    return 0 if ok else 1
+    return EXIT_OK if ok else EXIT_CHECKS_FAILED
 
 
 if __name__ == "__main__":
