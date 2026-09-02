@@ -32,7 +32,7 @@ teardown ── scratch container removed (unless --keep)
 
 ## Components
 
-- **Plan parser** — `main()` loads the YAML plan; an unreadable or unparseable
+- **Plan parser** — `main()` loads the YAML plan; an unreadable or unparsable
   plan is an error message and an exit code, not a traceback.
 - **Runner** — `run_plan()` sequences the stages, one function each:
   `fetch_backup` → `build_run_args` → `wait_until_ready` → `run_checks`.
