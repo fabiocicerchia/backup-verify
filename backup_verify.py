@@ -20,6 +20,12 @@ import uuid
 
 import yaml
 
+# The workdir is bind-mounted here; a plan's load_command reads the dump at
+# this path, so it is part of the plan contract (docs/plan-reference.md).
+CONTAINER_WORKDIR = "/work"
+DEFAULT_READY_TIMEOUT_SECONDS = 60
+READY_POLL_INTERVAL_SECONDS = 2
+
 
 class CheckFailure(Exception):
     pass
@@ -136,7 +142,7 @@ def build_run_args(name, workdir, restore, network):
         "--network",
         network,
         "-v",
-        f"{workdir}:/work",
+        f"{workdir}:{CONTAINER_WORKDIR}",
         *env_args,
         *limit_args,
         restore["image"],
@@ -187,7 +193,9 @@ def run_plan(plan, keep=False, workdir=None):
         docker(build_run_args(name, workdir, restore, network))
 
         try:
-            deadline = time.time() + int(restore.get("ready_timeout", 60))
+            deadline = time.time() + int(
+                restore.get("ready_timeout", DEFAULT_READY_TIMEOUT_SECONDS)
+            )
             while True:
                 try:
                     docker(["exec", name, "sh", "-c", restore["ready_command"]])
@@ -195,7 +203,7 @@ def run_plan(plan, keep=False, workdir=None):
                 except subprocess.CalledProcessError:
                     if time.time() > deadline:
                         raise CheckFailure("scratch container never became ready")
-                    time.sleep(2)
+                    time.sleep(READY_POLL_INTERVAL_SECONDS)
 
             print("backup-verify: loading dump")
             docker(["exec", name, "sh", "-c", restore["load_command"]])
