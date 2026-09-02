@@ -68,6 +68,21 @@ def append_history(path, record):
         fh.write(json.dumps(record) + "\n")
 
 
+def append_run_history(notify, start, ok, error=None):
+    """Append this run's outcome to `notify.history_file`, when the plan asks for one."""
+    history_file = notify.get("history_file")
+    if not history_file:
+        return
+    record = {
+        "timestamp": time.time(),
+        "duration_seconds": round(time.time() - start, 1),
+        "ok": ok,
+    }
+    if error is not None:
+        record["error"] = error
+    append_history(history_file, record)
+
+
 def run_failure_hook(notify, status, failed_checks, error, duration):
     """Best-effort `notify.on_failure` shell command; symmetric with `fetch.command`.
 
@@ -157,17 +172,6 @@ def run_plan(plan, keep=False, workdir=None):
     notify = plan.get("notify", {})
     start = time.time()
 
-    def append_run_history(ok, error=None):
-        if history_file := notify.get("history_file"):
-            record = {
-                "timestamp": time.time(),
-                "duration_seconds": round(time.time() - start, 1),
-                "ok": ok,
-            }
-            if error is not None:
-                record["error"] = error
-            append_history(history_file, record)
-
     # Everything that can throw — fetch, container boot, readiness, load, checks —
     # lives inside this try so a failure is *recorded* (history + on_failure hook)
     # rather than swallowed or leaked. We re-raise afterwards so the CLI still exits
@@ -225,7 +229,7 @@ def run_plan(plan, keep=False, workdir=None):
                 )  # nosec B603 B607
     except Exception as e:
         duration = time.time() - start
-        append_run_history(False, error=str(e))
+        append_run_history(notify, start, False, error=str(e))
         run_failure_hook(notify, "error", [], str(e), duration)
         raise
 
@@ -236,7 +240,7 @@ def run_plan(plan, keep=False, workdir=None):
         subprocess.run(["curl", "-fsS", "-m", "10", "-o", "/dev/null", heartbeat_url], check=False)  # nosec B603 B607
     if not ok:
         run_failure_hook(notify, "fail", [r["name"] for r in failed], "", duration)
-    append_run_history(ok)
+    append_run_history(notify, start, ok)
     return results, ok, duration
 
 
