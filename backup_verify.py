@@ -31,7 +31,7 @@ class CheckFailure(Exception):
     pass
 
 
-def run(args, **kwargs):
+def run_captured(args, **kwargs):
     """Run an argv list (no shell) and return trimmed stdout."""
     return subprocess.run(
         args,
@@ -43,7 +43,7 @@ def run(args, **kwargs):
 
 
 def docker(args):
-    return run(["docker", *args])
+    return run_captured(["docker", *args])
 
 
 def evaluate(check, output):
@@ -209,11 +209,11 @@ def run_plan(plan, keep=False, workdir=None):
             docker(["exec", name, "sh", "-c", restore["load_command"]])
 
             for check in plan.get("checks", []):
-                out = docker(["exec", name, "sh", "-c", check["command"]])
+                output = docker(["exec", name, "sh", "-c", check["command"]])
                 try:
-                    evaluate(check, out)
-                    results.append({"name": check["name"], "status": "pass", "output": out})
-                    print(f"  ✓ {check['name']} ({out})")
+                    evaluate(check, output)
+                    results.append({"name": check["name"], "status": "pass", "output": output})
+                    print(f"  ✓ {check['name']} ({output})")
                 except CheckFailure as e:
                     results.append({"name": check["name"], "status": "fail", "output": str(e)})
                     print(f"  ✗ {check['name']}: {e}")
@@ -232,8 +232,8 @@ def run_plan(plan, keep=False, workdir=None):
     duration = time.time() - start
     failed = [r for r in results if r["status"] == "fail"]
     ok = not failed
-    if ok and (hb := notify.get("heartbeat_url")):
-        subprocess.run(["curl", "-fsS", "-m", "10", "-o", "/dev/null", hb], check=False)  # nosec B603 B607
+    if ok and (heartbeat_url := notify.get("heartbeat_url")):
+        subprocess.run(["curl", "-fsS", "-m", "10", "-o", "/dev/null", heartbeat_url], check=False)  # nosec B603 B607
     if not ok:
         run_failure_hook(notify, "fail", [r["name"] for r in failed], "", duration)
     append_run_history(ok)
@@ -241,17 +241,19 @@ def run_plan(plan, keep=False, workdir=None):
 
 
 def main(argv=None):
-    p = argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(
         prog="backup-verify",
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    sub = p.add_subparsers(dest="cmd", required=True)
-    r = sub.add_parser("run")
-    r.add_argument("plan")
-    r.add_argument("--keep", action="store_true", help="keep the scratch container for inspection")
-    r.add_argument("--json", action="store_true")
-    args = p.parse_args(argv)
+    subcommands = parser.add_subparsers(dest="cmd", required=True)
+    run_cmd = subcommands.add_parser("run")
+    run_cmd.add_argument("plan")
+    run_cmd.add_argument(
+        "--keep", action="store_true", help="keep the scratch container for inspection"
+    )
+    run_cmd.add_argument("--json", action="store_true")
+    args = parser.parse_args(argv)
 
     with open(args.plan) as fh:
         plan = yaml.safe_load(fh)
