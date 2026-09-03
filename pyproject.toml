@@ -35,5 +35,10 @@ backup-verify = "backup_verify:main"
 [tool.setuptools]
 py-modules = ["backup_verify"]
 
+[tool.pytest.ini_options]
+# tests/ has no __init__.py, so pytest prepends tests/ and `import backup_verify`
+# resolves to whatever is installed in site-packages, not this checkout.
+pythonpath = ["."]
+
 [tool.ruff]
 line-length = 100

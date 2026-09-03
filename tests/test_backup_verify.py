@@ -1,4 +1,5 @@
 import json
+import logging
 import subprocess
 
 import pytest
@@ -12,6 +13,16 @@ from backup_verify import (
     evaluate,
     run_plan,
 )
+
+
+def test_missing_plan_file_exits_noinput(tmp_path):
+    assert backup_verify.main(["run", str(tmp_path / "nope.yaml")]) == backup_verify.EXIT_NOINPUT
+
+
+def test_unparsable_plan_exits_dataerr(tmp_path):
+    bad_plan = tmp_path / "bad.yaml"
+    bad_plan.write_text("fetch: [1, 2\nrestore: }\n")
+    assert backup_verify.main(["run", str(bad_plan)]) == backup_verify.EXIT_DATAERR
 
 
 def test_exact_expectation():
@@ -107,7 +118,7 @@ class FakeProc:
         self.returncode = returncode
 
 
-def make_fake_run(calls, *, fetch_fails=False, check_output="1"):
+def make_fake_run(calls, *, fetch_fails=False, check_output="1", notifier_unspawnable=False):
     def fake_run(args, **kwargs):
         calls.append({"args": args, "kwargs": kwargs})
         if isinstance(args, str):
@@ -116,6 +127,8 @@ def make_fake_run(calls, *, fetch_fails=False, check_output="1"):
                     raise subprocess.CalledProcessError(1, args)
                 return FakeProc()
             if "ON_FAILURE_CMD" in args:
+                if notifier_unspawnable:
+                    raise OSError(2, "No such file or directory")
                 # A notifier that exits non-zero: under check=True subprocess would
                 # raise, so this asserts run_plan invokes on_failure with check=False.
                 if kwargs.get("check"):
@@ -201,6 +214,27 @@ def test_success_pings_heartbeat_and_skips_on_failure(tmp_path, monkeypatch):
     heartbeats = [c for c in calls if isinstance(c["args"], list) and c["args"][0] == "curl"]
     assert len(heartbeats) == 1
     assert on_failure_calls(calls) == []
+
+
+def test_unspawnable_notifier_is_logged_as_a_warning(tmp_path, monkeypatch, caplog):
+    calls = []
+    monkeypatch.setattr(
+        backup_verify.subprocess,
+        "run",
+        make_fake_run(calls, check_output="5", notifier_unspawnable=True),
+    )
+    plan = make_plan(
+        [{"name": "row count", "command": "CHECK_CMD", "expect": "2"}],
+        {"on_failure": "ON_FAILURE_CMD"},
+    )
+
+    with caplog.at_level(logging.WARNING, logger="backup-verify"):
+        _results, ok, _ = run_plan(plan, workdir=str(tmp_path / "work"))
+
+    assert ok is False  # a notifier that cannot be spawned never changes the outcome
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "could not run notify.on_failure" in warnings[0].getMessage()
 
 
 def test_on_failure_nonzero_exit_does_not_change_outcome(tmp_path, monkeypatch):

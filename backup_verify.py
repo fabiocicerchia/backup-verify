@@ -11,6 +11,7 @@ backup is real; anything else = you found out today, not during an incident.
 
 import argparse
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -20,12 +21,28 @@ import uuid
 
 import yaml
 
+# The workdir is bind-mounted here; a plan's load_command reads the dump at
+# this path, so it is part of the plan contract (docs/plan-reference.md).
+CONTAINER_WORKDIR = "/work"
+DEFAULT_READY_TIMEOUT_SECONDS = 60
+READY_POLL_INTERVAL_SECONDS = 2
+
+# sysexits(3). 0/1 are the verdict the README documents; the rest say what went
+# wrong with the plan, so a bad plan is an error message and not a traceback.
+EXIT_OK = 0
+EXIT_CHECKS_FAILED = 1
+EXIT_DATAERR = 65
+EXIT_NOINPUT = 66
+
+# Diagnostics go here; the run's own report stays on stdout.
+logger = logging.getLogger("backup-verify")
+
 
 class CheckFailure(Exception):
     pass
 
 
-def run(args, **kwargs):
+def run_captured(args, **kwargs):
     """Run an argv list (no shell) and return trimmed stdout."""
     return subprocess.run(
         args,
@@ -37,7 +54,7 @@ def run(args, **kwargs):
 
 
 def docker(args):
-    return run(["docker", *args])
+    return run_captured(["docker", *args])
 
 
 def evaluate(check, output):
@@ -60,6 +77,21 @@ def append_history(path, record):
     """Append one JSON-line record to the RTO history file (created if missing)."""
     with open(path, "a") as fh:
         fh.write(json.dumps(record) + "\n")
+
+
+def append_run_history(notify, start, ok, error=None):
+    """Append this run's outcome to `notify.history_file`, when the plan asks for one."""
+    history_file = notify.get("history_file")
+    if not history_file:
+        return
+    record = {
+        "timestamp": time.time(),
+        "duration_seconds": round(time.time() - start, 1),
+        "ok": ok,
+    }
+    if error is not None:
+        record["error"] = error
+    append_history(history_file, record)
 
 
 def run_failure_hook(notify, status, failed_checks, error, duration):
@@ -87,35 +119,45 @@ def run_failure_hook(notify, status, failed_checks, error, duration):
         subprocess.run(command, shell=True, check=False, env=env)  # nosec B602  # nosemgrep: python.lang.security.audit.subprocess-shell-true.subprocess-shell-true
     except OSError as e:
         # A notifier that cannot even be spawned still must not change the
-        # run's outcome — say so on stderr and carry on.
-        print(f"backup-verify: could not run notify.on_failure: {e}", file=sys.stderr)
+        # run's outcome — say so and carry on.
+        logger.warning("could not run notify.on_failure: %s", e)
+
+
+def restic_argv(fetch, workdir):
+    """argv for `fetch.type: restic`."""
+    argv = [
+        "restic",
+        "-r",
+        fetch["repository"],
+        "restore",
+        fetch.get("snapshot", "latest"),
+        "--target",
+        fetch.get("target", workdir),
+    ]
+    if password_file := fetch.get("password_file"):
+        argv += ["--password-file", password_file]
+    return argv
+
+
+def pgbackrest_argv(fetch, workdir):
+    """argv for `fetch.type: pgbackrest`."""
+    argv = [
+        "pgbackrest",
+        f"--stanza={fetch['stanza']}",
+        f"--pg1-path={fetch.get('pg1_path', workdir)}",
+        "restore",
+    ]
+    return argv + list(fetch.get("extra_args", []))
+
+
+# A new native fetcher is a function plus a row here, not another branch.
+FETCHERS = {"restic": restic_argv, "pgbackrest": pgbackrest_argv}
 
 
 def build_fetch_command(fetch, workdir):
     """argv for a native fetcher (no shell), or None to fall back to `fetch.command`."""
-    kind = fetch.get("type", "shell")
-    if kind == "restic":
-        argv = [
-            "restic",
-            "-r",
-            fetch["repository"],
-            "restore",
-            fetch.get("snapshot", "latest"),
-            "--target",
-            fetch.get("target", workdir),
-        ]
-        if password_file := fetch.get("password_file"):
-            argv += ["--password-file", password_file]
-        return argv
-    if kind == "pgbackrest":
-        argv = [
-            "pgbackrest",
-            f"--stanza={fetch['stanza']}",
-            f"--pg1-path={fetch.get('pg1_path', workdir)}",
-            "restore",
-        ]
-        return argv + list(fetch.get("extra_args", []))
-    return None
+    build_argv = FETCHERS.get(fetch.get("type", "shell"))
+    return build_argv(fetch, workdir) if build_argv else None
 
 
 def build_run_args(name, workdir, restore, network):
@@ -136,11 +178,52 @@ def build_run_args(name, workdir, restore, network):
         "--network",
         network,
         "-v",
-        f"{workdir}:/work",
+        f"{workdir}:{CONTAINER_WORKDIR}",
         *env_args,
         *limit_args,
         restore["image"],
     ]
+
+
+def fetch_backup(fetch, workdir):
+    """Pull the latest backup into workdir, natively or through `fetch.command`."""
+    print("backup-verify: fetching latest backup")
+    fetch_argv = build_fetch_command(fetch, workdir)
+    if fetch_argv:
+        subprocess.run(fetch_argv, check=True)  # nosec B603
+        return
+    # ponytail: fetch.command is an arbitrary shell pipeline from the trusted
+    # plan file, so shell=True is intentional. notify.on_failure is the only
+    # other place we do this, and for the same reason.
+    subprocess.run(fetch["command"], shell=True, check=True)  # nosec B602  # nosemgrep: python.lang.security.audit.subprocess-shell-true.subprocess-shell-true
+
+
+def wait_until_ready(name, restore):
+    """Poll `restore.ready_command` until it exits 0, or give up at ready_timeout."""
+    deadline = time.time() + int(restore.get("ready_timeout", DEFAULT_READY_TIMEOUT_SECONDS))
+    while True:
+        try:
+            docker(["exec", name, "sh", "-c", restore["ready_command"]])
+            return
+        except subprocess.CalledProcessError:
+            if time.time() > deadline:
+                raise CheckFailure("scratch container never became ready")
+            time.sleep(READY_POLL_INTERVAL_SECONDS)
+
+
+def run_checks(name, checks):
+    """Run every smoke check inside the scratch container; one result record each."""
+    results = []
+    for check in checks:
+        output = docker(["exec", name, "sh", "-c", check["command"]])
+        try:
+            evaluate(check, output)
+            results.append({"name": check["name"], "status": "pass", "output": output})
+            print(f"  ✓ {check['name']} ({output})")
+        except CheckFailure as e:
+            results.append({"name": check["name"], "status": "fail", "output": str(e)})
+            print(f"  ✗ {check['name']}: {e}")
+    return results
 
 
 def run_plan(plan, keep=False, workdir=None):
@@ -151,17 +234,6 @@ def run_plan(plan, keep=False, workdir=None):
     notify = plan.get("notify", {})
     start = time.time()
 
-    def append_run_history(ok, error=None):
-        if history_file := notify.get("history_file"):
-            record = {
-                "timestamp": time.time(),
-                "duration_seconds": round(time.time() - start, 1),
-                "ok": ok,
-            }
-            if error is not None:
-                record["error"] = error
-            append_history(history_file, record)
-
     # Everything that can throw — fetch, container boot, readiness, load, checks —
     # lives inside this try so a failure is *recorded* (history + on_failure hook)
     # rather than swallowed or leaked. We re-raise afterwards so the CLI still exits
@@ -169,15 +241,7 @@ def run_plan(plan, keep=False, workdir=None):
     try:
         workdir = workdir or tempfile.mkdtemp(prefix="backup-verify-")
         os.makedirs(workdir, exist_ok=True)
-        print("backup-verify: fetching latest backup")
-        fetch_argv = build_fetch_command(plan["fetch"], workdir)
-        if fetch_argv:
-            subprocess.run(fetch_argv, check=True)  # nosec B603
-        else:
-            # ponytail: fetch.command is an arbitrary shell pipeline from the trusted
-            # plan file, so shell=True is intentional. notify.on_failure is the only
-            # other place we do this, and for the same reason.
-            subprocess.run(plan["fetch"]["command"], shell=True, check=True)  # nosec B602  # nosemgrep: python.lang.security.audit.subprocess-shell-true.subprocess-shell-true
+        fetch_backup(plan["fetch"], workdir)
 
         # Isolated (--internal, no external egress) network per run: the container
         # only needs to talk to itself over docker exec, and this keeps concurrent
@@ -187,28 +251,10 @@ def run_plan(plan, keep=False, workdir=None):
         docker(build_run_args(name, workdir, restore, network))
 
         try:
-            deadline = time.time() + int(restore.get("ready_timeout", 60))
-            while True:
-                try:
-                    docker(["exec", name, "sh", "-c", restore["ready_command"]])
-                    break
-                except subprocess.CalledProcessError:
-                    if time.time() > deadline:
-                        raise CheckFailure("scratch container never became ready")
-                    time.sleep(2)
-
+            wait_until_ready(name, restore)
             print("backup-verify: loading dump")
             docker(["exec", name, "sh", "-c", restore["load_command"]])
-
-            for check in plan.get("checks", []):
-                out = docker(["exec", name, "sh", "-c", check["command"]])
-                try:
-                    evaluate(check, out)
-                    results.append({"name": check["name"], "status": "pass", "output": out})
-                    print(f"  ✓ {check['name']} ({out})")
-                except CheckFailure as e:
-                    results.append({"name": check["name"], "status": "fail", "output": str(e)})
-                    print(f"  ✗ {check['name']}: {e}")
+            results = run_checks(name, plan.get("checks", []))
         finally:
             if not keep:
                 subprocess.run(["docker", "rm", "-f", name], capture_output=True, check=False)  # nosec B603 B607
@@ -217,36 +263,47 @@ def run_plan(plan, keep=False, workdir=None):
                 )  # nosec B603 B607
     except Exception as e:
         duration = time.time() - start
-        append_run_history(False, error=str(e))
+        append_run_history(notify, start, False, error=str(e))
         run_failure_hook(notify, "error", [], str(e), duration)
         raise
 
     duration = time.time() - start
     failed = [r for r in results if r["status"] == "fail"]
     ok = not failed
-    if ok and (hb := notify.get("heartbeat_url")):
-        subprocess.run(["curl", "-fsS", "-m", "10", "-o", "/dev/null", hb], check=False)  # nosec B603 B607
+    if ok and (heartbeat_url := notify.get("heartbeat_url")):
+        subprocess.run(["curl", "-fsS", "-m", "10", "-o", "/dev/null", heartbeat_url], check=False)  # nosec B603 B607
     if not ok:
         run_failure_hook(notify, "fail", [r["name"] for r in failed], "", duration)
-    append_run_history(ok)
+    append_run_history(notify, start, ok)
     return results, ok, duration
 
 
 def main(argv=None):
-    p = argparse.ArgumentParser(
+    logging.basicConfig(format="backup-verify: %(message)s", stream=sys.stderr, level=logging.INFO)
+    parser = argparse.ArgumentParser(
         prog="backup-verify",
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    sub = p.add_subparsers(dest="cmd", required=True)
-    r = sub.add_parser("run")
-    r.add_argument("plan")
-    r.add_argument("--keep", action="store_true", help="keep the scratch container for inspection")
-    r.add_argument("--json", action="store_true")
-    args = p.parse_args(argv)
+    subcommands = parser.add_subparsers(dest="cmd", required=True)
+    run_cmd = subcommands.add_parser("run")
+    run_cmd.add_argument("plan")
+    run_cmd.add_argument(
+        "--keep", action="store_true", help="keep the scratch container for inspection"
+    )
+    run_cmd.add_argument("--json", action="store_true")
+    args = parser.parse_args(argv)
 
-    with open(args.plan) as fh:
-        plan = yaml.safe_load(fh)
+    try:
+        with open(args.plan) as fh:
+            plan = yaml.safe_load(fh)
+    except OSError as e:
+        logger.error("cannot read plan %s: %s", args.plan, e.strerror)
+        return EXIT_NOINPUT
+    except yaml.YAMLError as e:
+        logger.error("plan %s is not valid YAML: %s", args.plan, e)
+        return EXIT_DATAERR
+
     results, ok, duration = run_plan(plan, keep=args.keep)
     if args.json:
         json.dump(
@@ -258,7 +315,7 @@ def main(argv=None):
         f"\nbackup-verify: {'PASS' if ok else 'FAIL'} "
         f"({sum(r['status'] == 'pass' for r in results)}/{len(results)} checks, {duration:.1f}s)"
     )
-    return 0 if ok else 1
+    return EXIT_OK if ok else EXIT_CHECKS_FAILED
 
 
 if __name__ == "__main__":
