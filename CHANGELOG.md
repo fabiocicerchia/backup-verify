@@ -4,6 +4,13 @@ This file is maintained automatically by
 [release-please](https://github.com/googleapis/release-please) from Conventional
 Commit messages — don't edit it by hand.
 
+## [0.3.2](https://github.com/fabiocicerchia/backup-verify/compare/v0.3.1...v0.3.2) (2026-09-04)
+
+
+### Bug Fixes
+
+* **ci:** pin the editorconfig-checker binary version ([#68](https://github.com/fabiocicerchia/backup-verify/issues/68)) ([8e4ed18](https://github.com/fabiocicerchia/backup-verify/commit/8e4ed18db37d5559558af21ad3f667f41c42cabc))
+
 ## [0.3.1](https://github.com/fabiocicerchia/backup-verify/compare/v0.3.0...v0.3.1) (2026-08-29)
 
 
