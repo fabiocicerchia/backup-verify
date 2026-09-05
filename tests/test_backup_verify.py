@@ -1,12 +1,14 @@
 import json
 import logging
 import subprocess
+from collections.abc import Callable
+from pathlib import Path
 
 import pytest
 
 import backup_verify
 from backup_verify import (
-    CheckFailure,
+    CheckFailedError,
     append_history,
     build_fetch_command,
     build_run_args,
@@ -15,41 +17,41 @@ from backup_verify import (
 )
 
 
-def test_missing_plan_file_exits_noinput(tmp_path):
+def test_missing_plan_file_exits_noinput(tmp_path: Path) -> None:
     assert backup_verify.main(["run", str(tmp_path / "nope.yaml")]) == backup_verify.EXIT_NOINPUT
 
 
-def test_unparsable_plan_exits_dataerr(tmp_path):
+def test_unparsable_plan_exits_dataerr(tmp_path: Path) -> None:
     bad_plan = tmp_path / "bad.yaml"
     bad_plan.write_text("fetch: [1, 2\nrestore: }\n")
     assert backup_verify.main(["run", str(bad_plan)]) == backup_verify.EXIT_DATAERR
 
 
-def test_exact_expectation():
+def test_exact_expectation() -> None:
     evaluate({"expect": "3"}, "3")
-    with pytest.raises(CheckFailure):
+    with pytest.raises(CheckFailedError):
         evaluate({"expect": "3"}, "2")
 
 
-def test_min_max_bounds():
+def test_min_max_bounds() -> None:
     evaluate({"expect_min": 1000}, "1500")
     evaluate({"expect_max": 48}, "12.5")
-    with pytest.raises(CheckFailure):
+    with pytest.raises(CheckFailedError):
         evaluate({"expect_min": 1000}, "999")
-    with pytest.raises(CheckFailure):
+    with pytest.raises(CheckFailedError):
         evaluate({"expect_max": 48}, "72")
 
 
-def test_non_numeric_output_for_numeric_check():
-    with pytest.raises(CheckFailure, match="expected a number"):
+def test_non_numeric_output_for_numeric_check() -> None:
+    with pytest.raises(CheckFailedError, match="expected a number"):
         evaluate({"expect_min": 1}, "ERROR: relation does not exist")
 
 
-def test_build_fetch_command_defaults_to_shell_fallback():
+def test_build_fetch_command_defaults_to_shell_fallback() -> None:
     assert build_fetch_command({"command": "cp x y"}, "/work") is None
 
 
-def test_build_fetch_command_restic():
+def test_build_fetch_command_restic() -> None:
     fetch = {
         "type": "restic",
         "repository": "s3:s3.amazonaws.com/bucket",
@@ -67,7 +69,7 @@ def test_build_fetch_command_restic():
     ]
 
 
-def test_build_fetch_command_pgbackrest():
+def test_build_fetch_command_pgbackrest() -> None:
     fetch = {"type": "pgbackrest", "stanza": "main", "extra_args": ["--delta"]}
     argv = build_fetch_command(fetch, "/work")
     assert argv == [
@@ -79,22 +81,23 @@ def test_build_fetch_command_pgbackrest():
     ]
 
 
-def test_build_run_args_attaches_network_and_no_limits_by_default():
+def test_build_run_args_attaches_network_and_no_limits_by_default() -> None:
     args = build_run_args("bv-1", "/work", {"image": "postgres:16-alpine"}, "bv-1-net")
-    assert "--network" in args and args[args.index("--network") + 1] == "bv-1-net"
+    assert "--network" in args
+    assert args[args.index("--network") + 1] == "bv-1-net"
     assert "--memory" not in args
     assert "--cpus" not in args
     assert args[-1] == "postgres:16-alpine"
 
 
-def test_build_run_args_applies_resource_limits():
+def test_build_run_args_applies_resource_limits() -> None:
     restore = {"image": "postgres:16-alpine", "memory": "512m", "cpus": "1.5"}
     args = build_run_args("bv-1", "/work", restore, "bv-1-net")
     assert args[args.index("--memory") + 1] == "512m"
     assert args[args.index("--cpus") + 1] == "1.5"
 
 
-def test_append_history_writes_one_json_line_per_call(tmp_path):
+def test_append_history_writes_one_json_line_per_call(tmp_path: Path) -> None:
     path = tmp_path / "history.jsonl"
     append_history(path, {"duration_seconds": 12.3, "ok": True})
     append_history(path, {"duration_seconds": 9.8, "ok": False})
@@ -113,13 +116,19 @@ def test_append_history_writes_one_json_line_per_call(tmp_path):
 
 
 class FakeProc:
-    def __init__(self, stdout="", returncode=0):
+    def __init__(self, stdout="", returncode=0) -> None:
         self.stdout = stdout
         self.returncode = returncode
 
 
-def make_fake_run(calls, *, fetch_fails=False, check_output="1", notifier_unspawnable=False):
-    def fake_run(args, **kwargs):
+def make_fake_run(
+    calls: list[dict[str, object]],
+    *,
+    fetch_fails: bool = False,
+    check_output: str = "1",
+    notifier_unspawnable: bool = False,
+) -> Callable[..., object]:
+    def fake_run(args: object, **kwargs: object) -> object:
         calls.append({"args": args, "kwargs": kwargs})
         if isinstance(args, str):
             if "FETCH_CMD" in args:
@@ -143,7 +152,7 @@ def make_fake_run(calls, *, fetch_fails=False, check_output="1", notifier_unspaw
     return fake_run
 
 
-def make_plan(checks, notify):
+def make_plan(checks: list[dict[str, object]], notify: dict[str, object]) -> dict[str, object]:
     return {
         "fetch": {"command": "FETCH_CMD"},
         "restore": {
@@ -156,11 +165,11 @@ def make_plan(checks, notify):
     }
 
 
-def on_failure_calls(calls):
+def on_failure_calls(calls: list[dict[str, object]]) -> list[dict[str, object]]:
     return [c for c in calls if isinstance(c["args"], str) and "ON_FAILURE_CMD" in c["args"]]
 
 
-def test_fetch_failure_records_history_and_runs_on_failure(tmp_path, monkeypatch):
+def test_fetch_failure_records_history_and_runs_on_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls = []
     monkeypatch.setattr(backup_verify.subprocess, "run", make_fake_run(calls, fetch_fails=True))
     history = tmp_path / "history.jsonl"
@@ -181,7 +190,7 @@ def test_fetch_failure_records_history_and_runs_on_failure(tmp_path, monkeypatch
     assert env["BACKUP_VERIFY_FAILED_CHECKS"] == ""
 
 
-def test_failed_check_runs_on_failure_with_check_name(tmp_path, monkeypatch):
+def test_failed_check_runs_on_failure_with_check_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls = []
     monkeypatch.setattr(backup_verify.subprocess, "run", make_fake_run(calls, check_output="5"))
     plan = make_plan(
@@ -200,7 +209,7 @@ def test_failed_check_runs_on_failure_with_check_name(tmp_path, monkeypatch):
     assert env["BACKUP_VERIFY_ERROR"] == ""
 
 
-def test_success_pings_heartbeat_and_skips_on_failure(tmp_path, monkeypatch):
+def test_success_pings_heartbeat_and_skips_on_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls = []
     monkeypatch.setattr(backup_verify.subprocess, "run", make_fake_run(calls, check_output="2"))
     plan = make_plan(
@@ -208,15 +217,33 @@ def test_success_pings_heartbeat_and_skips_on_failure(tmp_path, monkeypatch):
         {"heartbeat_url": "https://hc-ping.com/x", "on_failure": "ON_FAILURE_CMD"},
     )
 
+    pinged: list[str] = []
+
+    class FakeResponse:
+        def __enter__(self) -> "FakeResponse":
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            return None
+
+    def fake_urlopen(url: str, timeout: float = 0) -> FakeResponse:
+        pinged.append(url)
+        return FakeResponse()
+
+    monkeypatch.setattr(backup_verify.urllib.request, "urlopen", fake_urlopen)
+
     _, ok, _ = run_plan(plan, workdir=str(tmp_path / "work"))
 
     assert ok is True
-    heartbeats = [c for c in calls if isinstance(c["args"], list) and c["args"][0] == "curl"]
-    assert len(heartbeats) == 1
+    # The ping is a plain GET, not a shell-out: a machine without curl used to
+    # stop reporting success without saying so.
+    assert pinged == ["https://hc-ping.com/x"]
     assert on_failure_calls(calls) == []
 
 
-def test_unspawnable_notifier_is_logged_as_a_warning(tmp_path, monkeypatch, caplog):
+def test_unspawnable_notifier_is_logged_as_a_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     calls = []
     monkeypatch.setattr(
         backup_verify.subprocess,
@@ -237,7 +264,7 @@ def test_unspawnable_notifier_is_logged_as_a_warning(tmp_path, monkeypatch, capl
     assert "could not run notify.on_failure" in warnings[0].getMessage()
 
 
-def test_on_failure_nonzero_exit_does_not_change_outcome(tmp_path, monkeypatch):
+def test_on_failure_nonzero_exit_does_not_change_outcome(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls = []
     monkeypatch.setattr(backup_verify.subprocess, "run", make_fake_run(calls, check_output="5"))
     plan = make_plan(
