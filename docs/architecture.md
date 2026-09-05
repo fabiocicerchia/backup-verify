@@ -11,7 +11,7 @@ backup into a throwaway container and runs smoke queries against it.
 
 ## Data flow
 
-```
+```text
 plan.yaml
    │
    ▼
