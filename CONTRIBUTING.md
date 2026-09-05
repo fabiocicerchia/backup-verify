@@ -42,10 +42,10 @@ Releases are automated by [release-please](.github/workflows/release.yml); you
 don't tag or edit the changelog manually.
 
 1. Merge `feat:`/`fix:` PRs into `main` as normal — **no tag is created**.
-2. release-please keeps an open **release PR** ("chore: release X.Y.Z"),
+1. release-please keeps an open **release PR** ("chore: release X.Y.Z"),
    recalculating the next version (in `pyproject.toml`) and `CHANGELOG.md` on
    every merge.
-3. When you're ready to ship, **merge the release PR** — that (and only that)
+1. When you're ready to ship, **merge the release PR** — that (and only that)
    creates the `vX.Y.Z` tag and GitHub Release, which builds and (if
    `PUBLISH_TO_PYPI` is set) publishes the sdist + wheel to PyPI.
 
