@@ -159,7 +159,7 @@ def run_failure_hook(notify: Plan, status: str, failed_checks: list[str], error:
         # ponytail: on_failure is an arbitrary shell pipeline from the same trusted
         # plan file as fetch.command, so shell=True is intentional here too. check=False
         # keeps a failing notifier from ever changing the run's outcome.
-        subprocess.run(  # noqa: S602 — see the comment above
+        subprocess.run(  # noqa: S602  # nosec B602  # nosemgrep — see the comment above
             command, shell=True, check=False, env=env
         )
     except OSError as e:
@@ -241,7 +241,10 @@ def fetch_backup(fetch: Plan, workdir: str) -> None:
     # ponytail: fetch.command is an arbitrary shell pipeline from the trusted
     # plan file, so shell=True is intentional. notify.on_failure is the only
     # other place we do this, and for the same reason.
-    subprocess.run(fetch["command"], shell=True, check=True)  # noqa: S602 — see the comment above.subprocess-shell-true
+    # Three linters, three spellings of the same exemption: ruff (S602),
+    # bandit (B602) and semgrep all flag shell=True, and all three are
+    # answered by the comment above rather than by a repo-wide rule.
+    subprocess.run(fetch["command"], shell=True, check=True)  # noqa: S602  # nosec B602  # nosemgrep
 
 
 def wait_until_ready(name: str, restore: Plan) -> None:
