@@ -1,14 +1,13 @@
-import glob
+from pathlib import Path
 
 import yaml
 
 
-def test_example_plans_are_well_formed():
-    paths = glob.glob("examples/*.yaml")
+def test_example_plans_are_well_formed() -> None:
+    paths = sorted(Path("examples").glob("*.yaml"))
     assert paths, "no example plans found"
     for path in paths:
-        with open(path) as fh:
-            plan = yaml.safe_load(fh)
+        plan = yaml.safe_load(path.read_text())
         assert "fetch" in plan
         assert "restore" in plan
         assert "image" in plan["restore"]
