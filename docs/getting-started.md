@@ -27,12 +27,12 @@ unless `--keep` is passed.
 
 ## Exit codes
 
-| Code | Meaning                                             |
-| ---- | --------------------------------------------------- |
-| 0    | every check passed — the backup restores            |
-| 1    | at least one check failed                           |
-| 2    | bad command line (emitted by the argument parser)   |
-| 65   | the plan is not valid YAML                          |
-| 66   | the plan file could not be read                     |
+| Code | Meaning                                           |
+| ---- | ------------------------------------------------- |
+| 0    | every check passed — the backup restores          |
+| 1    | at least one check failed                         |
+| 2    | bad command line (emitted by the argument parser) |
+| 65   | the plan is not valid YAML                        |
+| 66   | the plan file could not be read                   |
 
 Anything non-zero means you found out today rather than during an incident.
