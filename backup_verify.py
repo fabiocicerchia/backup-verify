@@ -163,9 +163,9 @@ def run_failure_hook(notify: Plan, status: str, failed_checks: list[str], error:
         # ponytail: on_failure is an arbitrary shell pipeline from the same trusted
         # plan file as fetch.command, so shell=True is intentional here too. check=False
         # keeps a failing notifier from ever changing the run's outcome.
-        subprocess.run(  # noqa: S602  # nosec B602  # nosemgrep — see the comment above
-            command, shell=True, check=False, env=env
-        )
+        # One line so the match and its exemptions share it: semgrep reports
+        # against the shell=True argument, not against the call's opening line.
+        subprocess.run(command, shell=True, check=False, env=env)  # noqa: S602  # nosec B602  # nosemgrep
     except OSError as e:
         # A notifier that cannot even be spawned still must not change the
         # run's outcome — say so and carry on.
