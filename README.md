@@ -15,13 +15,13 @@ incident-day discovery.
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/fabiocicerchia/backup-verify/main/install.sh | bash
+pipx install git+https://github.com/fabiocicerchia/backup-verify
 ```
 
-Or with pipx directly:
+Or with pip:
 
 ```sh
-pipx install git+https://github.com/fabiocicerchia/backup-verify
+pip install --user git+https://github.com/fabiocicerchia/backup-verify
 ```
 
 ## How it works
