@@ -3,6 +3,7 @@ import logging
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any, TypedDict
 
 import pytest
 
@@ -115,20 +116,27 @@ def test_append_history_writes_one_json_line_per_call(tmp_path: Path) -> None:
 # docker/curl argv arrive as a list — that split is how the fake tells them apart.
 
 
+class FakeCall(TypedDict):
+    """One recorded subprocess.run call: what the fake was handed."""
+
+    args: str | list[str]
+    kwargs: dict[str, Any]
+
+
 class FakeProc:
-    def __init__(self, stdout="", returncode=0) -> None:
+    def __init__(self, stdout: str = "", returncode: int = 0) -> None:
         self.stdout = stdout
         self.returncode = returncode
 
 
 def make_fake_run(
-    calls: list[dict[str, object]],
+    calls: list[FakeCall],
     *,
     fetch_fails: bool = False,
     check_output: str = "1",
     notifier_unspawnable: bool = False,
-) -> Callable[..., object]:
-    def fake_run(args: object, **kwargs: object) -> object:
+) -> Callable[..., FakeProc]:
+    def fake_run(args: str | list[str], **kwargs: object) -> FakeProc:
         calls.append({"args": args, "kwargs": kwargs})
         if isinstance(args, str):
             if "FETCH_CMD" in args:
@@ -145,7 +153,7 @@ def make_fake_run(
                 return FakeProc(returncode=3)
             return FakeProc()
         # docker/curl argv; only the check command carries a real output.
-        if "CHECK_CMD" in " ".join(str(a) for a in args):
+        if "CHECK_CMD" in " ".join(args):
             return FakeProc(stdout=check_output)
         return FakeProc()
 
@@ -165,12 +173,12 @@ def make_plan(checks: list[dict[str, object]], notify: dict[str, object]) -> dic
     }
 
 
-def on_failure_calls(calls: list[dict[str, object]]) -> list[dict[str, object]]:
+def on_failure_calls(calls: list[FakeCall]) -> list[FakeCall]:
     return [c for c in calls if isinstance(c["args"], str) and "ON_FAILURE_CMD" in c["args"]]
 
 
 def test_fetch_failure_records_history_and_runs_on_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    calls = []
+    calls: list[FakeCall] = []
     monkeypatch.setattr(backup_verify.subprocess, "run", make_fake_run(calls, fetch_fails=True))
     history = tmp_path / "history.jsonl"
     plan = make_plan([], {"history_file": str(history), "on_failure": "ON_FAILURE_CMD"})
@@ -191,7 +199,7 @@ def test_fetch_failure_records_history_and_runs_on_failure(tmp_path: Path, monke
 
 
 def test_failed_check_runs_on_failure_with_check_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    calls = []
+    calls: list[FakeCall] = []
     monkeypatch.setattr(backup_verify.subprocess, "run", make_fake_run(calls, check_output="5"))
     plan = make_plan(
         [{"name": "row count", "command": "CHECK_CMD", "expect": "2"}],
@@ -210,7 +218,7 @@ def test_failed_check_runs_on_failure_with_check_name(tmp_path: Path, monkeypatc
 
 
 def test_success_pings_heartbeat_and_skips_on_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    calls = []
+    calls: list[FakeCall] = []
     monkeypatch.setattr(backup_verify.subprocess, "run", make_fake_run(calls, check_output="2"))
     plan = make_plan(
         [{"name": "row count", "command": "CHECK_CMD", "expect": "2"}],
@@ -244,7 +252,7 @@ def test_success_pings_heartbeat_and_skips_on_failure(tmp_path: Path, monkeypatc
 def test_unspawnable_notifier_is_logged_as_a_warning(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    calls = []
+    calls: list[FakeCall] = []
     monkeypatch.setattr(
         backup_verify.subprocess,
         "run",
@@ -265,7 +273,7 @@ def test_unspawnable_notifier_is_logged_as_a_warning(
 
 
 def test_on_failure_nonzero_exit_does_not_change_outcome(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    calls = []
+    calls: list[FakeCall] = []
     monkeypatch.setattr(backup_verify.subprocess, "run", make_fake_run(calls, check_output="5"))
     plan = make_plan(
         [{"name": "row count", "command": "CHECK_CMD", "expect": "2"}],

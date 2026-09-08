@@ -54,7 +54,7 @@ class CheckFailedError(Exception):
     pass
 
 
-def run_captured(args: list[str], **kwargs: object) -> str:
+def run_captured(args: list[str], **kwargs: Any) -> str:
     """Run an argv list (no shell) and return trimmed stdout."""
     # argv is a list built by the caller, never a string, and no shell is
     # involved.
@@ -103,20 +103,22 @@ def evaluate(check: Plan, output: str) -> None:
     """Apply expect/expect_min/expect_max to a check's output."""
     if "expect" in check and output != str(check["expect"]):
         raise CheckFailedError(f"expected {check['expect']!r}, got {output!r}")
-    value = None
-    if "expect_min" in check or "expect_max" in check:
-        try:
-            value = float(output)
-        except ValueError as err:
-            msg = f"expected a number, got {output!r}"
-            raise CheckFailedError(msg) from err
+    if "expect_min" not in check and "expect_max" not in check:
+        return
+    try:
+        value = float(output)
+    except ValueError as err:
+        msg = f"expected a number, got {output!r}"
+        raise CheckFailedError(msg) from err
+    # Inside the branch that parsed it: the bounds are only comparable once
+    # there is a number, and the two `if`s below were reachable without one.
     if "expect_min" in check and value < float(check["expect_min"]):
         raise CheckFailedError(f"{value} < min {check['expect_min']}")
     if "expect_max" in check and value > float(check["expect_max"]):
         raise CheckFailedError(f"{value} > max {check['expect_max']}")
 
 
-def append_history(path: str, record: dict[str, Any]) -> None:
+def append_history(path: str | Path, record: dict[str, Any]) -> None:
     """Append one JSON-line record to the RTO history file (created if missing)."""
     with Path(path).open("a") as fh:
         fh.write(json.dumps(record) + "\n")
@@ -127,7 +129,7 @@ def append_run_history(notify: Plan, start: float, ok: bool, error: str | None =
     history_file = notify.get("history_file")
     if not history_file:
         return
-    record = {
+    record: dict[str, Any] = {
         "timestamp": time.time(),
         "duration_seconds": round(time.time() - start, 1),
         "ok": ok,
@@ -152,16 +154,18 @@ def run_failure_hook(notify: Plan, status: str, failed_checks: list[str], error:
         **os.environ,
         "BACKUP_VERIFY_STATUS": status,
         "BACKUP_VERIFY_FAILED_CHECKS": ",".join(failed_checks),
-        "BACKUP_VERIFY_ERROR": error,
+        # The hook reads this from the environment, where there is no such
+        # thing as an unset-but-present variable: an absent error is "".
+        "BACKUP_VERIFY_ERROR": error or "",
         "BACKUP_VERIFY_DURATION": f"{duration:.1f}",
     }
     try:
         # ponytail: on_failure is an arbitrary shell pipeline from the same trusted
         # plan file as fetch.command, so shell=True is intentional here too. check=False
         # keeps a failing notifier from ever changing the run's outcome.
-        subprocess.run(  # noqa: S602  # nosec B602  # nosemgrep — see the comment above
-            command, shell=True, check=False, env=env
-        )
+        # One line so the match and its exemptions share it: semgrep reports
+        # against the shell=True argument, not against the call's opening line.
+        subprocess.run(command, shell=True, check=False, env=env)  # noqa: S602  # nosec B602  # nosemgrep
     except OSError as e:
         # A notifier that cannot even be spawned still must not change the
         # run's outcome — say so and carry on.
@@ -207,10 +211,10 @@ def build_fetch_command(fetch: Plan, workdir: str) -> list[str] | None:
 
 def build_run_args(name: str, workdir: str, restore: Plan, network: str) -> list[str]:
     """docker-run argv (sans leading "docker") for the scratch container."""
-    env_args = []
+    env_args: list[str] = []
     for k, v in restore.get("env", {}).items():
         env_args += ["-e", f"{k}={v}"]
-    limit_args = []
+    limit_args: list[str] = []
     if mem := restore.get("memory"):
         limit_args += ["--memory", str(mem)]
     if cpus := restore.get("cpus"):
@@ -264,7 +268,7 @@ def wait_until_ready(name: str, restore: Plan) -> None:
 
 def run_checks(name: str, checks: list[Plan]) -> list[Result]:
     """Run every smoke check inside the scratch container; one result record each."""
-    results = []
+    results: list[Result] = []
     for check in checks:
         output = docker(["exec", name, "sh", "-c", check["command"]])
         try:
