@@ -1,0 +1,43 @@
+.TH BACKUP\-VERIFY 1 "2026-09" "backup-verify" "User Commands"
+.SH NAME
+backup-verify \- prove that your backups restore, on a schedule
+.SH SYNOPSIS
+.B backup-verify
+.B run
+.I PLAN
+.RI [ options ]
+.SH DESCRIPTION
+Reads a plan in YAML, fetches the latest backup, boots a scratch container,
+loads the dump, runs smoke checks and tears everything down.
+.PP
+Exit 0 means the backup is real. Anything else means you found out today,
+rather than during an incident.
+.SH COMMANDS
+.TP
+.BI run " PLAN"
+Run one verification plan end to end.
+.SH OPTIONS
+.TP
+.B \-\-keep
+Keep the scratch container afterwards, for inspection.
+.TP
+.B \-\-json
+Machine-readable output.
+.SH EXIT STATUS
+.TP
+.B 0
+The backup restored and passed its smoke checks.
+.TP
+.B non-zero
+It did not.
+.SH EXAMPLES
+.PP
+Verify nightly, from cron:
+.PP
+.RS
+.B backup-verify run plans/postgres.yaml \-\-json
+.RE
+.SH SEE ALSO
+.BR docker (1).
+Project documentation:
+https://github.com/fabiocicerchia/backup-verify
