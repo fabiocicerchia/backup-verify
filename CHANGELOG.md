@@ -4,6 +4,18 @@ This file is maintained automatically by
 [release-please](https://github.com/googleapis/release-please) from Conventional
 Commit messages — don't edit it by hand.
 
+## [0.4.0](https://github.com/fabiocicerchia/backup-verify/compare/v0.3.2...v0.4.0) (2026-09-10)
+
+
+### Features
+
+* **packaging:** ship a man page with the wheel ([#86](https://github.com/fabiocicerchia/backup-verify/issues/86)) ([f099031](https://github.com/fabiocicerchia/backup-verify/commit/f099031a8460ec1ce3fe3060a6c7407da3c36f45))
+
+
+### Bug Fixes
+
+* **release:** grant id-token on the job that calls the signing workflow ([#89](https://github.com/fabiocicerchia/backup-verify/issues/89)) ([b7985f3](https://github.com/fabiocicerchia/backup-verify/commit/b7985f322305a3f54784e1ba8ea107f0e1256497))
+
 ## [0.3.2](https://github.com/fabiocicerchia/backup-verify/compare/v0.3.1...v0.3.2) (2026-09-08)
 
 
