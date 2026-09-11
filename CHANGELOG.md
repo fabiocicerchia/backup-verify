@@ -4,6 +4,13 @@ This file is maintained automatically by
 [release-please](https://github.com/googleapis/release-please) from Conventional
 Commit messages — don't edit it by hand.
 
+## [0.4.2](https://github.com/fabiocicerchia/backup-verify/compare/v0.4.1...v0.4.2) (2026-09-11)
+
+
+### Bug Fixes
+
+* **release:** let the release PR carry a token that isn't GITHUB_TOKEN ([#94](https://github.com/fabiocicerchia/backup-verify/issues/94)) ([af8c0f9](https://github.com/fabiocicerchia/backup-verify/commit/af8c0f9786bacb95b2ab6e6165f07d6f2332f3c7))
+
 ## [0.4.1](https://github.com/fabiocicerchia/backup-verify/compare/v0.4.0...v0.4.1) (2026-09-10)
 
 
