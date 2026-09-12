@@ -4,6 +4,13 @@ This file is maintained automatically by
 [release-please](https://github.com/googleapis/release-please) from Conventional
 Commit messages — don't edit it by hand.
 
+## [0.4.3](https://github.com/fabiocicerchia/backup-verify/compare/v0.4.2...v0.4.3) (2026-09-12)
+
+
+### Documentation
+
+* add a Features section to the README ([#96](https://github.com/fabiocicerchia/backup-verify/issues/96)) ([9ac2af0](https://github.com/fabiocicerchia/backup-verify/commit/9ac2af00b27e48f53e1784fd1efcce75044981fe))
+
 ## [0.4.2](https://github.com/fabiocicerchia/backup-verify/compare/v0.4.1...v0.4.2) (2026-09-11)
 
 
