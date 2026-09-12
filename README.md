@@ -12,6 +12,28 @@ smoke queries against it.** A backup that hasn't been restored is a hope, not
 a backup — this makes restore-testing a boring weekly cron instead of an
 incident-day discovery.
 
+## Features
+
+- Restores the **latest** backup into a scratch container and runs smoke
+  queries against it, on a schedule — so a bad backup surfaces on a boring
+  weekly cron rather than on incident day.
+- One YAML plan covers the whole loop: **fetch → restore → checks → notify**.
+- Native `restic` and `pgbackrest` fetchers with no shell involved; anything
+  else via a shell command.
+- Restores onto an isolated per-run Docker network (`--internal`), with
+  optional `memory` / `cpus` limits.
+- Checks assert with `expect` / `expect_min` / `expect_max` — row counts, data
+  freshness, schema presence.
+- Dead-man's-switch notification: the heartbeat URL is pinged **only on
+  success**, so silence means the backups are broken.
+- Optional `history_file` appends one `{timestamp, duration_seconds, ok}` line
+  per run, so restore time can be trended rather than guessed.
+- Optional `on_failure` command, handed `BACKUP_VERIFY_STATUS`,
+  `BACKUP_VERIFY_FAILED_CHECKS`, `BACKUP_VERIFY_ERROR` and
+  `BACKUP_VERIFY_DURATION` — no wrapper script needed.
+- Always tears the scratch container down; `--keep` retains it to inspect a
+  failure, `--json` for machine-readable output.
+
 ## Install
 
 ```sh
