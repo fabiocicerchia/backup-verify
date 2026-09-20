@@ -4,6 +4,13 @@ This file is maintained automatically by
 [release-please](https://github.com/googleapis/release-please) from Conventional
 Commit messages — don't edit it by hand.
 
+## [0.4.4](https://github.com/fabiocicerchia/backup-verify/compare/v0.4.3...v0.4.4) (2026-09-20)
+
+
+### Bug Fixes
+
+* **ci:** keep actions: read on the job that uploads sarif ([#111](https://github.com/fabiocicerchia/backup-verify/issues/111)) ([2585845](https://github.com/fabiocicerchia/backup-verify/commit/25858457b89efa16cbc953760dd5d8bc3ac77b57))
+
 ## [0.4.3](https://github.com/fabiocicerchia/backup-verify/compare/v0.4.2...v0.4.3) (2026-09-12)
 
 
