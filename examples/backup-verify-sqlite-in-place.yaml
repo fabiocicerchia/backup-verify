@@ -5,11 +5,11 @@
 # have provided. The pod is torn down after the job either way; making it start
 # a second container inside itself buys isolation it already has.
 #
-#   backup-verify run backup-verify-sqlite-in-place.yaml --workdir /work --json
+#   backup-verify run backup-verify-sqlite-in-place.yaml --json
 #
-# `--workdir /work` is not required — the default is a fresh temporary
-# directory — but pinning it keeps the paths below identical to the
-# container-mode plans, where /work is the bind mount.
+# The paths below are all relative to the workdir, which is where the commands
+# already are, so nothing here needs --workdir. Pass one when the backup has to
+# land somewhere specific — a mounted volume with room for it, say.
 
 fetch:
   # Whatever puts last night's set where the checks can see it. $BACKUP_VERIFY_WORKDIR
@@ -56,6 +56,10 @@ checks:
     expect_min: 1
 
 notify:
-  # One {timestamp, duration_seconds, ok} line per run. In a pod this wants to
-  # be on a mounted volume, or it dies with the container that wrote it.
-  history_file: /work/history.jsonl
+  # One {timestamp, duration_seconds, ok} line per run. A fixed path, not
+  # anything under the workdir: the workdir is a fresh temporary directory
+  # unless --workdir says otherwise, and a history that moves every run is not a
+  # trend. In a pod this wants to be a mounted volume, or it dies with the
+  # container that wrote it — and the directory has to exist, since a history
+  # file that cannot be opened throws after every check has already passed.
+  history_file: /var/lib/backup-verify/history.jsonl

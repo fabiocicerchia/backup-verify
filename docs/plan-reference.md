@@ -41,12 +41,19 @@ notify:
 ## `fetch`
 
 Pulls the latest backup onto the host, into a workdir that gets bind-mounted
-into the scratch container at `/work`.
+into the scratch container at `/work` (when restoring in place there is no
+mount — see below).
 
-The workdir is a fresh temporary directory unless `--workdir` names one. A
+The workdir is a fresh temporary directory unless `--workdir` names one, and a
+relative `--workdir` is resolved to an absolute path before anything uses it. A
 `restic`/`pgbackrest` fetch is handed it as an argument; a shell `command` gets
 it as **`$BACKUP_VERIFY_WORKDIR`**, which is the only way it can know where to
 put what it fetched.
+
+`fetch` always runs on the host, never in the container, so a shell `command`
+that writes to `/work` is writing to a host path that usually does not exist —
+use `$BACKUP_VERIFY_WORKDIR`. `/work` is the container's name for that same
+directory, which is what `load_command` and the checks see.
 
 | `type`       | Fields                                                                 |
 | ------------ | ---------------------------------------------------------------------- |
@@ -61,14 +68,14 @@ responsibility to keep injection-safe since it runs through `sh -c`.
 
 Boots the scratch container that the dump gets loaded into.
 
-| Field            | Meaning                                                             |
-| ---------------- | ------------------------------------------------------------------- |
-| `image`          | Docker image for the scratch database. **Omit to restore in place** |
-| `env`            | Environment variables passed to the container                       |
-| `ready_command`  | Polled (every 2s) until it exits 0. Optional                        |
-| `ready_timeout`  | Seconds to wait for `ready_command` before failing (default 60)     |
-| `load_command`   | Loads the fetched dump from `/work` into the running database       |
-| `memory`, `cpus` | Optional resource limits (`docker run --memory`/`--cpus`)           |
+| Field            | Meaning                                                                        |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `image`          | Docker image for the scratch database. **Omit to restore in place**            |
+| `env`            | Environment variables passed to the container                                  |
+| `ready_command`  | Polled (every 2s) until it exits 0. Required with `image`                      |
+| `ready_timeout`  | Seconds to wait for `ready_command` before failing (default 60)                |
+| `load_command`   | Loads the fetched dump: from `/work` in a container, from the workdir in place |
+| `memory`, `cpus` | Optional resource limits (`docker run --memory`/`--cpus`)                      |
 
 The container runs on its own `--internal` (no external egress) Docker
 network and is removed afterward unless `--keep` is passed.
@@ -89,25 +96,34 @@ What changes:
   identical in both modes.
 - `env` is applied to the commands' environment rather than to a container.
 - `ready_command` is usually pointless — nothing is booting — and is skipped
-  when absent.
+  when absent. This is the one mode where it may be omitted: with an `image` it
+  is required, because without it the `load_command` fires at a container that
+  is still starting.
 - `memory` and `cpus` are container limits with no meaning here; they are
   ignored with a warning. Use the pod's own resource limits.
 - `--keep` has nothing to keep.
 
+Paths are relative to the workdir, which is where the commands already are —
+absolute ones like `/work` or `/restore` assume a bind mount that is not there
+and a writable filesystem root the pod may not have:
+
 ```yaml
 restore:
-  load_command: mkdir -p /restore && for f in /work/*.sqlite.gz; do
-    gunzip -c "$f" > "/restore/$(basename "$f" .gz)"; done
+  load_command: mkdir -p restored && for f in *.sqlite.gz; do
+    gunzip -c "$f" > "restored/$(basename "$f" .gz)"; done
 
 checks:
   - name: every database restores and passes integrity_check
-    command: find /restore -name '*.sqlite' -exec sqlite3 {} 'PRAGMA integrity_check' \; 2>&1 | sort -u | tr -d '\n'
+    command: find restored -name '*.sqlite' -exec sqlite3 {} 'PRAGMA integrity_check' \; 2>&1 | sort -u | tr -d '\n'
     expect: "ok"
 ```
 
 ```sh
-backup-verify run plan.yaml --workdir /work --json
+backup-verify run plan.yaml --json
 ```
+
+The whole plan is in
+[`examples/backup-verify-sqlite-in-place.yaml`](../examples/backup-verify-sqlite-in-place.yaml).
 
 ## `checks`
 
@@ -115,13 +131,13 @@ A list of smoke queries run in the scratch environment — `docker exec … sh -
 <command>` in a container, `sh -c <command>` in the workdir when restoring in
 place — each evaluated against its trimmed stdout:
 
-| Field        | Meaning                                   |
-| ------------ | ----------------------------------------- |
-| `name`       | Label shown in output                     |
-| `command`    | Shell command to run inside the container |
-| `expect`     | Exact string match                        |
-| `expect_min` | Output cast to float, must be ≥ this      |
-| `expect_max` | Output cast to float, must be ≤ this      |
+| Field        | Meaning                                      |
+| ------------ | -------------------------------------------- |
+| `name`       | Label shown in output                        |
+| `command`    | Shell command run in the scratch environment |
+| `expect`     | Exact string match                           |
+| `expect_min` | Output cast to float, must be ≥ this         |
+| `expect_max` | Output cast to float, must be ≤ this         |
 
 A run only counts as `PASS` if every check passes.
 

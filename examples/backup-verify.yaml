@@ -1,7 +1,9 @@
 # A verification plan: how to fetch the latest backup, how to boot a scratch
 # database from it, and what must be true for the backup to count as good.
 fetch:
-  command: aws s3 cp "$(aws s3 ls s3://backups/db/ | sort | tail -1 | awk '{print "s3://backups/db/"$4}')" /work/dump.sql.gz
+  # Runs on the host, not in the container: /work only exists once the workdir
+  # is bind-mounted. $BACKUP_VERIFY_WORKDIR is that directory, host-side.
+  command: aws s3 cp "$(aws s3 ls s3://backups/db/ | sort | tail -1 | awk '{print "s3://backups/db/"$4}')" "$BACKUP_VERIFY_WORKDIR/dump.sql.gz"
 
 restore:
   image: postgres:16-alpine

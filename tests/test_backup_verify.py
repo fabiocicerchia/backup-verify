@@ -332,3 +332,25 @@ def test_in_place_ignores_container_only_limits(tmp_path: Path, caplog: pytest.L
 
     assert ok is True
     assert "restore.memory needs a scratch container" in caplog.records[0].getMessage()
+
+
+def test_relative_workdir_is_resolved_before_anything_uses_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # A relative workdir reaches docker as a *named volume* rather than a bind
+    # mount, and reaches an in-place command that cd's away as the wrong path.
+    monkeypatch.chdir(tmp_path)
+    check = {"name": "workdir survives a cd", "command": 'cd / && wc -l < "$BACKUP_VERIFY_WORKDIR/rows.txt"'}
+    plan = in_place_plan([{**check, "expect_min": 2}])
+
+    _results, ok, _ = run_plan(plan, workdir="work")
+
+    assert ok is True
+    assert (tmp_path / "work" / "restored.txt").exists()
+
+
+def test_image_without_ready_command_is_a_plan_error() -> None:
+    # Skipping the readiness poll would fire load_command at a container that is
+    # still booting: an intermittent connection refused, or a quiet false pass.
+    restore = {"image": "postgres:16-alpine", "load_command": "LOAD"}
+
+    with pytest.raises(ValueError, match="ready_command"):
+        backup_verify.restore_and_check({}, restore, lambda _command: "")

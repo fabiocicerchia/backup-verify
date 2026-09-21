@@ -317,7 +317,11 @@ def wait_until_ready(restore: Plan, run_sh: Shell) -> None:
             run_sh(restore["ready_command"])
         except subprocess.CalledProcessError as err:
             if time.time() > deadline:
-                msg = "scratch container never became ready"
+                # Not "the scratch container never became ready": in-place plans
+                # can have a ready_command too (a sidecar, a database already in
+                # the pod), and this string is what reaches history_file and
+                # $BACKUP_VERIFY_ERROR.
+                msg = "restore.ready_command never succeeded within ready_timeout"
                 raise CheckFailedError(msg) from err
             time.sleep(READY_POLL_INTERVAL_SECONDS)
         else:
@@ -342,9 +346,15 @@ def run_checks(checks: list[Plan], run_sh: Shell) -> list[Result]:
 def restore_and_check(plan: Plan, restore: Plan, run_sh: Shell) -> list[Result]:
     """Wait for the environment, load the dump into it, ask it the questions.
 
-    `ready_command` is optional because restoring in place has nothing to wait
-    for: the thing that would have been booted is already running this.
+    `ready_command` is optional only when restoring in place, which has nothing
+    to wait for: the thing that would have been booted is already running this.
+    A container that just started is the opposite case — skipping the poll there
+    fires `load_command` at a database that is still booting, which fails
+    intermittently or, worse, passes.
     """
+    if restore.get("image") and not restore.get("ready_command"):
+        msg = "restore.ready_command is required alongside restore.image"
+        raise ValueError(msg)
     if restore.get("ready_command"):
         wait_until_ready(restore, run_sh)
     print("backup-verify: loading dump")  # noqa: T201 — run progress, on stdout
@@ -365,7 +375,12 @@ def run_plan(plan: Plan, keep: bool = False, workdir: str | None = None) -> tupl
     # rather than swallowed or leaked. We re-raise afterwards so the CLI still exits
     # non-zero and run_plan() callers keep seeing the exception.
     try:
-        workdir = workdir or tempfile.mkdtemp(prefix="backup-verify-")
+        # Absolute, always: docker reads a relative `-v` source as a *named
+        # volume*, so `--workdir work` would bind an empty volume over /work and
+        # the load would fail with "no such file" pointing nowhere near the
+        # cause. In place, a relative $BACKUP_VERIFY_WORKDIR would break any
+        # command that cd's away from the workdir it is already sitting in.
+        workdir = str(Path(workdir or tempfile.mkdtemp(prefix="backup-verify-")).resolve())
         Path(workdir).mkdir(parents=True, exist_ok=True)
         fetch_backup(plan["fetch"], workdir)
 
