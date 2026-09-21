@@ -4,6 +4,13 @@ This file is maintained automatically by
 [release-please](https://github.com/googleapis/release-please) from Conventional
 Commit messages — don't edit it by hand.
 
+## [0.5.0](https://github.com/fabiocicerchia/backup-verify/compare/v0.4.4...v0.5.0) (2026-09-21)
+
+
+### Features
+
+* restore in place when a plan has no restore.image ([#113](https://github.com/fabiocicerchia/backup-verify/issues/113)) ([c2f93cd](https://github.com/fabiocicerchia/backup-verify/commit/c2f93cd3e6c5b1bb6620fa18f8079bdc134cf05a))
+
 ## [0.4.4](https://github.com/fabiocicerchia/backup-verify/compare/v0.4.3...v0.4.4) (2026-09-20)
 
 
