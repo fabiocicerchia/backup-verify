@@ -1,6 +1,8 @@
 # MySQL variant: fetch a mysqldump, restore into a scratch container, smoke-check it.
 fetch:
-  command: aws s3 cp "$(aws s3 ls s3://backups/mysql/ | sort | tail -1 | awk '{print "s3://backups/mysql/"$4}')" /work/dump.sql.gz
+  # Host-side, so the workdir arrives as $BACKUP_VERIFY_WORKDIR; /work is where
+  # the container sees that same directory, which is what load_command reads.
+  command: aws s3 cp "$(aws s3 ls s3://backups/mysql/ | sort | tail -1 | awk '{print "s3://backups/mysql/"$4}')" "$BACKUP_VERIFY_WORKDIR/dump.sql.gz"
 
 restore:
   image: mysql:8

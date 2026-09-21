@@ -5,6 +5,10 @@ Reads a plan (YAML), fetches the latest backup, boots a scratch container,
 loads the dump, runs smoke checks, tears everything down. Exit 0 = your
 backup is real; anything else = you found out today, not during an incident.
 
+Omit `restore.image` and the loading and the checks happen right here instead,
+for when whatever is running this is already the scratch environment — a
+Kubernetes CronJob pod, a throwaway VM. Same plan, same checks, no Docker.
+
   backup-verify run backup-verify.yaml
   backup-verify run backup-verify.yaml --keep     # leave scratch container up
 """
@@ -20,6 +24,7 @@ import tempfile
 import time
 import urllib.request
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +36,10 @@ import yaml
 Plan = dict[str, Any]
 # One check's result: {name, ok, output, error}.
 Result = dict[str, Any]
+# Runs one of the plan's shell commands and returns its trimmed stdout. The one
+# thing that differs between a scratch container and restoring in place, which
+# is why it is the only thing the restore and check stages are handed.
+Shell = Callable[[str], str]
 
 # The workdir is bind-mounted here; a plan's load_command reads the dump at
 # this path, so it is part of the plan contract (docs/plan-reference.md).
@@ -248,29 +257,82 @@ def fetch_backup(fetch: Plan, workdir: str) -> None:
     # Three linters, three spellings of the same exemption: ruff (S602),
     # bandit (B602) and semgrep all flag shell=True, and all three are
     # answered by the comment above rather than by a repo-wide rule.
-    subprocess.run(fetch["command"], shell=True, check=True)  # noqa: S602  # nosec B602  # nosemgrep
+    #
+    # The env var is the only way a shell fetcher learns where to put what it
+    # fetched — the native fetchers are handed `workdir` as an argument, and
+    # before this a plan had to guess (a `backup-verify-*/` glob against the
+    # tempdir, which matches two directories the moment two runs overlap).
+    env = {**os.environ, "BACKUP_VERIFY_WORKDIR": workdir}
+    subprocess.run(fetch["command"], shell=True, check=True, env=env)  # noqa: S602  # nosec B602  # nosemgrep
 
 
-def wait_until_ready(name: str, restore: Plan) -> None:
+def docker_runner(name: str) -> Shell:
+    """Run plan commands inside the scratch container."""
+    return lambda command: docker(["exec", name, "sh", "-c", command])
+
+
+def local_runner(workdir: str, restore: Plan) -> Shell:
+    """Run plan commands here, in this process's own container.
+
+    For `restore.image`-less plans, where whatever is already running this is
+    the scratch environment — a Kubernetes CronJob pod, a throwaway VM. There is
+    no bind mount and therefore no `/work`, so the workdir arrives two ways
+    instead: it is the commands' working directory, and it is
+    `$BACKUP_VERIFY_WORKDIR` for the plans that would rather be explicit.
+    """
+    env = {
+        **os.environ,
+        "BACKUP_VERIFY_WORKDIR": workdir,
+        **{k: str(v) for k, v in restore.get("env", {}).items()},
+    }
+
+    def run(command: str) -> str:
+        # ponytail: same trusted-plan argument as fetch.command and notify.on_failure
+        # — the plan file is the operator's own document.
+        #
+        # The three exemptions sit on two different lines because the three
+        # linters report in two different places: ruff and bandit against the
+        # call, semgrep against the `shell=True` argument itself. The other two
+        # shell=True calls here are one-liners, where that distinction does not
+        # show; this call is too long to be one, so it has to be said twice.
+        done = subprocess.run(  # noqa: S602  # nosec B602
+            command,
+            shell=True,  # nosemgrep
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=workdir,
+            env=env,
+        )
+        return done.stdout.strip()
+
+    return run
+
+
+def wait_until_ready(restore: Plan, run_sh: Shell) -> None:
     """Poll `restore.ready_command` until it exits 0, or give up at ready_timeout."""
     deadline = time.time() + int(restore.get("ready_timeout", DEFAULT_READY_TIMEOUT_SECONDS))
     while True:
         try:
-            docker(["exec", name, "sh", "-c", restore["ready_command"]])
+            run_sh(restore["ready_command"])
         except subprocess.CalledProcessError as err:
             if time.time() > deadline:
-                msg = "scratch container never became ready"
+                # Not "the scratch container never became ready": in-place plans
+                # can have a ready_command too (a sidecar, a database already in
+                # the pod), and this string is what reaches history_file and
+                # $BACKUP_VERIFY_ERROR.
+                msg = "restore.ready_command never succeeded within ready_timeout"
                 raise CheckFailedError(msg) from err
             time.sleep(READY_POLL_INTERVAL_SECONDS)
         else:
             return
 
 
-def run_checks(name: str, checks: list[Plan]) -> list[Result]:
-    """Run every smoke check inside the scratch container; one result record each."""
+def run_checks(checks: list[Plan], run_sh: Shell) -> list[Result]:
+    """Run every smoke check in the scratch environment; one result record each."""
     results: list[Result] = []
     for check in checks:
-        output = docker(["exec", name, "sh", "-c", check["command"]])
+        output = run_sh(check["command"])
         try:
             evaluate(check, output)
             results.append({"name": check["name"], "status": "pass", "output": output})
@@ -279,6 +341,37 @@ def run_checks(name: str, checks: list[Plan]) -> list[Result]:
             results.append({"name": check["name"], "status": "fail", "output": str(e)})
             print(f"  ✗ {check['name']}: {e}")  # noqa: T201 — run progress, on stdout
     return results
+
+
+def validate_restore(restore: Plan) -> None:
+    """Reject the two `restore` shapes that would otherwise fail quietly, or pass.
+
+    Both are about which environment the plan's commands end up in, which is the
+    one thing a plan cannot afford to get wrong by accident.
+    """
+    # Restoring in place is chosen by leaving `image` out, so a present but empty
+    # one is a plan defect rather than consent: `image: {{ .Values.scratch }}`
+    # with nothing to substitute would move the load and every check out of the
+    # scratch container and into this process, quietly, and still pass.
+    if "image" in restore and not restore["image"]:
+        msg = "restore.image is empty; omit the key entirely to restore in place"
+        raise ValueError(msg)
+    # A container that has just started needs something to wait for: skipping the
+    # poll fires `load_command` at a database that is still booting, which fails
+    # intermittently or, worse, passes. In place there is nothing booting, which
+    # is the only reason `ready_command` is ever optional.
+    if restore.get("image") and not restore.get("ready_command"):
+        msg = "restore.ready_command is required alongside restore.image"
+        raise ValueError(msg)
+
+
+def restore_and_check(plan: Plan, restore: Plan, run_sh: Shell) -> list[Result]:
+    """Wait for the environment, load the dump into it, ask it the questions."""
+    if restore.get("ready_command"):
+        wait_until_ready(restore, run_sh)
+    print("backup-verify: loading dump")  # noqa: T201 — run progress, on stdout
+    run_sh(restore["load_command"])
+    return run_checks(plan.get("checks", []), run_sh)
 
 
 def run_plan(plan: Plan, keep: bool = False, workdir: str | None = None) -> tuple[list[Result], bool, float]:
@@ -294,28 +387,41 @@ def run_plan(plan: Plan, keep: bool = False, workdir: str | None = None) -> tupl
     # rather than swallowed or leaked. We re-raise afterwards so the CLI still exits
     # non-zero and run_plan() callers keep seeing the exception.
     try:
-        workdir = workdir or tempfile.mkdtemp(prefix="backup-verify-")
+        # Ahead of the fetch: a plan defect should cost nothing to find.
+        validate_restore(restore)
+
+        # Absolute, always: docker reads a relative `-v` source as a *named
+        # volume*, so `--workdir work` would bind an empty volume over /work and
+        # the load would fail with "no such file" pointing nowhere near the
+        # cause. In place, a relative $BACKUP_VERIFY_WORKDIR would break any
+        # command that cd's away from the workdir it is already sitting in.
+        workdir = str(Path(workdir or tempfile.mkdtemp(prefix="backup-verify-")).resolve())
         Path(workdir).mkdir(parents=True, exist_ok=True)
         fetch_backup(plan["fetch"], workdir)
 
-        # Isolated (--internal, no external egress) network per run: the container
-        # only needs to talk to itself over docker exec, and this keeps concurrent
-        # runs from ever sharing a network namespace.
-        docker(["network", "create", "--internal", network])
-        print(f"backup-verify: starting scratch container ({restore['image']})")  # noqa: T201 — run progress, on stdout
-        docker(build_run_args(name, workdir, restore, network))
-
-        try:
-            wait_until_ready(name, restore)
-            print("backup-verify: loading dump")  # noqa: T201 — run progress, on stdout
-            docker(["exec", name, "sh", "-c", restore["load_command"]])
-            results = run_checks(name, plan.get("checks", []))
-        finally:
-            if not keep:
-                # Best-effort teardown: a failure here must not mask the run's
-                # own result, hence check=False.
-                _docker_quietly(["rm", "-f", name])
-                _docker_quietly(["network", "rm", network])
+        if restore.get("image"):
+            # Isolated (--internal, no external egress) network per run: the container
+            # only needs to talk to itself over docker exec, and this keeps concurrent
+            # runs from ever sharing a network namespace.
+            docker(["network", "create", "--internal", network])
+            print(f"backup-verify: starting scratch container ({restore['image']})")  # noqa: T201 — run progress, on stdout
+            docker(build_run_args(name, workdir, restore, network))
+            try:
+                results = restore_and_check(plan, restore, docker_runner(name))
+            finally:
+                if not keep:
+                    # Best-effort teardown: a failure here must not mask the run's
+                    # own result, hence check=False.
+                    _docker_quietly(["rm", "-f", name])
+                    _docker_quietly(["network", "rm", network])
+        else:
+            # No image: this process is already the scratch environment. Nothing
+            # to boot, nothing to tear down — so `--keep` has nothing to keep.
+            for ignored in ("memory", "cpus"):
+                if restore.get(ignored):
+                    logger.warning("restore.%s needs a scratch container; ignored without restore.image", ignored)
+            print(f"backup-verify: restoring in place ({workdir})")  # noqa: T201 — run progress, on stdout
+            results = restore_and_check(plan, restore, local_runner(workdir, restore))
     except Exception as e:
         duration = time.time() - start
         append_run_history(notify, start, False, error=str(e))
@@ -345,6 +451,12 @@ def main(argv: list[str] | None = None) -> int:
     run_cmd.add_argument("plan")
     run_cmd.add_argument("--keep", action="store_true", help="keep the scratch container for inspection")
     run_cmd.add_argument("--json", action="store_true")
+    run_cmd.add_argument(
+        "--workdir",
+        help="where the backup is fetched to (default: a fresh temporary directory). "
+        "With restore.image it is bind-mounted at /work; without one it is the "
+        "commands' working directory. Either way it is $BACKUP_VERIFY_WORKDIR.",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -356,7 +468,7 @@ def main(argv: list[str] | None = None) -> int:
         logger.exception("plan %s is not valid YAML", args.plan)
         return EXIT_DATAERR
 
-    results, ok, duration = run_plan(plan, keep=args.keep)
+    results, ok, duration = run_plan(plan, keep=args.keep, workdir=args.workdir)
     if args.json:
         json.dump(
             {"ok": ok, "duration_seconds": round(duration, 1), "checks": results},

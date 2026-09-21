@@ -1,0 +1,65 @@
+# SQLite, restored in place — no `restore.image`, and so no Docker.
+#
+# For a Kubernetes CronJob, a throwaway VM, or any host where the thing running
+# backup-verify is already the disposable environment a scratch container would
+# have provided. The pod is torn down after the job either way; making it start
+# a second container inside itself buys isolation it already has.
+#
+#   backup-verify run backup-verify-sqlite-in-place.yaml --json
+#
+# The paths below are all relative to the workdir, which is where the commands
+# already are, so nothing here needs --workdir. Pass one when the backup has to
+# land somewhere specific — a mounted volume with room for it, say.
+
+fetch:
+  # Whatever puts last night's set where the checks can see it. $BACKUP_VERIFY_WORKDIR
+  # is exported for exactly this: a shell fetcher is told the workdir no other way.
+  #
+  # -p preserves mtimes, which the freshness check below reads. Without it every
+  # file looks new and a dump job that died a month ago still passes.
+  command: cp -p /backups/latest/*.sqlite.gz "$BACKUP_VERIFY_WORKDIR/"
+
+restore:
+  # No `image`, so this runs here. SQLite has no server to boot, which means no
+  # `ready_command` either — and doing the gunzip here rather than inside a
+  # check is what makes a corrupt archive a *restore* failure rather than a
+  # query that quietly returned nothing.
+  load_command: >-
+    mkdir -p restored && for f in *.sqlite.gz; do
+      gunzip -c "$f" > "restored/$(basename "$f" .gz)"; done
+
+checks:
+  - name: every database restores and passes integrity_check
+    # sort -u collapses N identical "ok"s into one; anything else — a corrupt
+    # page, a truncated archive, sqlite3 refusing the file at all (2>&1, so its
+    # complaint lands in the output) — makes this something other than "ok".
+    #
+    # find rather than a `for f in restored/*.sqlite` loop: with no files the
+    # glob stays literal, sqlite3 creates that empty database on the spot and
+    # calls it healthy. Zero restored databases would read as a pass.
+    command: >-
+      find restored -name '*.sqlite' -exec sqlite3 {} 'PRAGMA integrity_check' \; 2>&1 | sort -u | tr -d '\n'
+    expect: "ok"
+
+  - name: every database has tables
+    # An empty database passes integrity_check. This catches a restore that
+    # produced a valid, empty file.
+    command: >-
+      find restored -name '*.sqlite' -exec sqlite3 {} "SELECT count(*) FROM sqlite_master WHERE type='table'" \; | sort -n | head -1
+    expect_min: 1
+
+  - name: the snapshot is from the last day
+    # The check the others are blind to: a dump job that stopped is invisible to
+    # a restore, because last week's snapshot restores perfectly. 1500 minutes
+    # is 25 hours — a nightly dump plus an hour of slack.
+    command: find . -name '*.gz' -mmin -1500 | wc -l
+    expect_min: 1
+
+notify:
+  # One {timestamp, duration_seconds, ok} line per run. A fixed path, not
+  # anything under the workdir: the workdir is a fresh temporary directory
+  # unless --workdir says otherwise, and a history that moves every run is not a
+  # trend. In a pod this wants to be a mounted volume, or it dies with the
+  # container that wrote it — and the directory has to exist, since a history
+  # file that cannot be opened throws after every check has already passed.
+  history_file: /var/lib/backup-verify/history.jsonl

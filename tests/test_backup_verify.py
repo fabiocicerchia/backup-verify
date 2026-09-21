@@ -285,3 +285,79 @@ def test_on_failure_nonzero_exit_does_not_change_outcome(tmp_path: Path, monkeyp
     assert ok is False
     assert results[0]["status"] == "fail"
     assert len(on_failure_calls(calls)) == 1
+
+
+# --- restoring in place (no restore.image) ---------------------------------
+#
+# These run for real: there is no docker to fake, which is the whole point of
+# the mode. A plan with no image is a plan whose commands run right here.
+
+
+def in_place_plan(checks: list[dict[str, object]], **restore: object) -> dict[str, object]:
+    return {
+        # Writes into the workdir without being told where it is any other way,
+        # which is what $BACKUP_VERIFY_WORKDIR is for.
+        "fetch": {"command": 'printf "alpha\nbeta\n" > "$BACKUP_VERIFY_WORKDIR/rows.txt"'},
+        "restore": {"load_command": "cp rows.txt restored.txt", **restore},
+        "checks": checks,
+    }
+
+
+def test_in_place_run_loads_and_checks_without_docker(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    plan = in_place_plan([{"name": "rows restored", "command": "wc -l < restored.txt", "expect_min": 2}])
+
+    results, ok, _ = run_plan(plan, workdir=str(work))
+
+    assert ok is True
+    assert results[0]["status"] == "pass"
+    # The load ran in the workdir, not in whatever directory pytest started in.
+    assert (work / "restored.txt").read_text() == "alpha\nbeta\n"
+
+
+def test_in_place_check_failure_is_a_result_not_a_crash(tmp_path: Path) -> None:
+    plan = in_place_plan([{"name": "rows restored", "command": "wc -l < restored.txt", "expect": "99"}])
+
+    results, ok, _ = run_plan(plan, workdir=str(tmp_path / "work"))
+
+    assert ok is False
+    assert results[0]["status"] == "fail"
+
+
+def test_in_place_ignores_container_only_limits(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    plan = in_place_plan([], memory="512m")
+
+    with caplog.at_level(logging.WARNING, logger="backup-verify"):
+        _results, ok, _ = run_plan(plan, workdir=str(tmp_path / "work"))
+
+    assert ok is True
+    assert "restore.memory needs a scratch container" in caplog.records[0].getMessage()
+
+
+def test_relative_workdir_is_resolved_before_anything_uses_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # A relative workdir reaches docker as a *named volume* rather than a bind
+    # mount, and reaches an in-place command that cd's away as the wrong path.
+    monkeypatch.chdir(tmp_path)
+    check = {"name": "workdir survives a cd", "command": 'cd / && wc -l < "$BACKUP_VERIFY_WORKDIR/rows.txt"'}
+    plan = in_place_plan([{**check, "expect_min": 2}])
+
+    _results, ok, _ = run_plan(plan, workdir="work")
+
+    assert ok is True
+    assert (tmp_path / "work" / "restored.txt").exists()
+
+
+def test_empty_image_is_a_plan_error_not_a_request_to_restore_in_place(tmp_path: Path) -> None:
+    # What an unsubstituted `image: {{ .Values.scratchImage }}` renders to. Left
+    # alone it would silently run a container plan's commands in this process.
+    plan = in_place_plan([], image="")
+
+    with pytest.raises(ValueError, match=r"restore\.image is empty"):
+        run_plan(plan, workdir=str(tmp_path / "work"))
+
+
+def test_image_without_ready_command_is_a_plan_error() -> None:
+    # Skipping the readiness poll would fire load_command at a container that is
+    # still booting: an intermittent connection refused, or a quiet false pass.
+    with pytest.raises(ValueError, match="ready_command"):
+        backup_verify.validate_restore({"image": "postgres:16-alpine", "load_command": "LOAD"})
