@@ -56,7 +56,10 @@ field-by-field [Plan Reference](docs/plan-reference.md)):
    native `type: restic` / `type: pgbackrest` fetcher (no shell)
 1. **restore** — scratch container image, readiness probe, load command, on an
    isolated (`--internal`) per-run docker network; optional `memory`/`cpus`
-   limits
+   limits. Omit the image and the load and the checks run **in place**, for
+   when the thing running backup-verify is already the scratch environment —
+   a Kubernetes CronJob pod, a throwaway VM
+   (see [`examples/backup-verify-sqlite-in-place.yaml`](examples/backup-verify-sqlite-in-place.yaml))
 1. **checks** — smoke queries with `expect` / `expect_min` / `expect_max`
    (row counts, data freshness, schema presence)
 1. **notify** — heartbeat URL pinged *only on success*
@@ -110,6 +113,7 @@ publish workflow for that tag to sign it.
 backup-verify run backup-verify.yaml
 backup-verify run backup-verify.yaml --keep   # keep the scratch container to inspect failures
 backup-verify run backup-verify.yaml --json   # machine-readable output
+backup-verify run backup-verify.yaml --workdir /work   # where the backup is fetched to
 ```
 
 More in [`docs/getting-started.md`](docs/getting-started.md).

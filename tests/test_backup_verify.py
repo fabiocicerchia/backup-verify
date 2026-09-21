@@ -285,3 +285,50 @@ def test_on_failure_nonzero_exit_does_not_change_outcome(tmp_path: Path, monkeyp
     assert ok is False
     assert results[0]["status"] == "fail"
     assert len(on_failure_calls(calls)) == 1
+
+
+# --- restoring in place (no restore.image) ---------------------------------
+#
+# These run for real: there is no docker to fake, which is the whole point of
+# the mode. A plan with no image is a plan whose commands run right here.
+
+
+def in_place_plan(checks: list[dict[str, object]], **restore: object) -> dict[str, object]:
+    return {
+        # Writes into the workdir without being told where it is any other way,
+        # which is what $BACKUP_VERIFY_WORKDIR is for.
+        "fetch": {"command": 'printf "alpha\nbeta\n" > "$BACKUP_VERIFY_WORKDIR/rows.txt"'},
+        "restore": {"load_command": "cp rows.txt restored.txt", **restore},
+        "checks": checks,
+    }
+
+
+def test_in_place_run_loads_and_checks_without_docker(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    plan = in_place_plan([{"name": "rows restored", "command": "wc -l < restored.txt", "expect_min": 2}])
+
+    results, ok, _ = run_plan(plan, workdir=str(work))
+
+    assert ok is True
+    assert results[0]["status"] == "pass"
+    # The load ran in the workdir, not in whatever directory pytest started in.
+    assert (work / "restored.txt").read_text() == "alpha\nbeta\n"
+
+
+def test_in_place_check_failure_is_a_result_not_a_crash(tmp_path: Path) -> None:
+    plan = in_place_plan([{"name": "rows restored", "command": "wc -l < restored.txt", "expect": "99"}])
+
+    results, ok, _ = run_plan(plan, workdir=str(tmp_path / "work"))
+
+    assert ok is False
+    assert results[0]["status"] == "fail"
+
+
+def test_in_place_ignores_container_only_limits(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    plan = in_place_plan([], memory="512m")
+
+    with caplog.at_level(logging.WARNING, logger="backup-verify"):
+        _results, ok, _ = run_plan(plan, workdir=str(tmp_path / "work"))
+
+    assert ok is True
+    assert "restore.memory needs a scratch container" in caplog.records[0].getMessage()
