@@ -287,12 +287,17 @@ def local_runner(workdir: str, restore: Plan) -> Shell:
     }
 
     def run(command: str) -> str:
-        # ponytail: same trusted-plan argument as fetch.command and
-        # notify.on_failure — the plan file is the operator's own document.
-        # One line so the three linters' exemptions sit on the flagged call.
-        return subprocess.run(  # noqa: S602  # nosec B602  # nosemgrep
-            command, shell=True, check=True, capture_output=True, text=True, cwd=workdir, env=env
-        ).stdout.strip()
+        # ponytail: same trusted-plan argument as fetch.command and notify.on_failure
+        # — the plan file is the operator's own document.
+        #
+        # The options are lifted out so the call fits on one line, which is not
+        # cosmetic: semgrep matches the `shell=True` argument rather than the
+        # call's opening line, so on a wrapped call the exemption comment sits
+        # on a line the rule never looked at and the finding stands.
+        # `check` stays on the call: ruff (PLW1510) cannot see it through **opts.
+        opts: dict[str, Any] = {"capture_output": True, "text": True, "cwd": workdir, "env": env}
+        done = subprocess.run(command, shell=True, check=True, **opts)  # noqa: S602  # nosec B602  # nosemgrep
+        return done.stdout.strip()
 
     return run
 
