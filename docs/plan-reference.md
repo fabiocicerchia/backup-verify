@@ -82,8 +82,9 @@ network and is removed afterward unless `--keep` is passed.
 
 ### Restoring in place
 
-Leave `image` out and the `load_command` and every check run in this process
-instead of in a container — for when whatever runs backup-verify is *already*
+Leave `image` out — the key absent entirely, not present and empty, which is a
+plan error rather than consent — and the `load_command` and every check run in
+this process instead of in a container — for when whatever runs backup-verify is *already*
 the scratch environment: a Kubernetes CronJob pod, a throwaway VM, a CI job.
 The isolation that the scratch container provides is the pod's, and there is no
 Docker daemon to need.

@@ -347,10 +347,17 @@ def test_relative_workdir_is_resolved_before_anything_uses_it(tmp_path: Path, mo
     assert (tmp_path / "work" / "restored.txt").exists()
 
 
+def test_empty_image_is_a_plan_error_not_a_request_to_restore_in_place(tmp_path: Path) -> None:
+    # What an unsubstituted `image: {{ .Values.scratchImage }}` renders to. Left
+    # alone it would silently run a container plan's commands in this process.
+    plan = in_place_plan([], image="")
+
+    with pytest.raises(ValueError, match=r"restore\.image is empty"):
+        run_plan(plan, workdir=str(tmp_path / "work"))
+
+
 def test_image_without_ready_command_is_a_plan_error() -> None:
     # Skipping the readiness poll would fire load_command at a container that is
     # still booting: an intermittent connection refused, or a quiet false pass.
-    restore = {"image": "postgres:16-alpine", "load_command": "LOAD"}
-
     with pytest.raises(ValueError, match="ready_command"):
-        backup_verify.restore_and_check({}, restore, lambda _command: "")
+        backup_verify.validate_restore({"image": "postgres:16-alpine", "load_command": "LOAD"})

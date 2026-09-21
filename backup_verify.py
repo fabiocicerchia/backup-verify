@@ -343,18 +343,30 @@ def run_checks(checks: list[Plan], run_sh: Shell) -> list[Result]:
     return results
 
 
-def restore_and_check(plan: Plan, restore: Plan, run_sh: Shell) -> list[Result]:
-    """Wait for the environment, load the dump into it, ask it the questions.
+def validate_restore(restore: Plan) -> None:
+    """Reject the two `restore` shapes that would otherwise fail quietly, or pass.
 
-    `ready_command` is optional only when restoring in place, which has nothing
-    to wait for: the thing that would have been booted is already running this.
-    A container that just started is the opposite case — skipping the poll there
-    fires `load_command` at a database that is still booting, which fails
-    intermittently or, worse, passes.
+    Both are about which environment the plan's commands end up in, which is the
+    one thing a plan cannot afford to get wrong by accident.
     """
+    # Restoring in place is chosen by leaving `image` out, so a present but empty
+    # one is a plan defect rather than consent: `image: {{ .Values.scratch }}`
+    # with nothing to substitute would move the load and every check out of the
+    # scratch container and into this process, quietly, and still pass.
+    if "image" in restore and not restore["image"]:
+        msg = "restore.image is empty; omit the key entirely to restore in place"
+        raise ValueError(msg)
+    # A container that has just started needs something to wait for: skipping the
+    # poll fires `load_command` at a database that is still booting, which fails
+    # intermittently or, worse, passes. In place there is nothing booting, which
+    # is the only reason `ready_command` is ever optional.
     if restore.get("image") and not restore.get("ready_command"):
         msg = "restore.ready_command is required alongside restore.image"
         raise ValueError(msg)
+
+
+def restore_and_check(plan: Plan, restore: Plan, run_sh: Shell) -> list[Result]:
+    """Wait for the environment, load the dump into it, ask it the questions."""
     if restore.get("ready_command"):
         wait_until_ready(restore, run_sh)
     print("backup-verify: loading dump")  # noqa: T201 — run progress, on stdout
@@ -375,6 +387,9 @@ def run_plan(plan: Plan, keep: bool = False, workdir: str | None = None) -> tupl
     # rather than swallowed or leaked. We re-raise afterwards so the CLI still exits
     # non-zero and run_plan() callers keep seeing the exception.
     try:
+        # Ahead of the fetch: a plan defect should cost nothing to find.
+        validate_restore(restore)
+
         # Absolute, always: docker reads a relative `-v` source as a *named
         # volume*, so `--workdir work` would bind an empty volume over /work and
         # the load would fail with "no such file" pointing nowhere near the
