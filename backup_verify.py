@@ -67,7 +67,7 @@ def run_captured(args: list[str], **kwargs: Any) -> str:
     """Run an argv list (no shell) and return trimmed stdout."""
     # argv is a list built by the caller, never a string, and no shell is
     # involved.
-    return subprocess.run(  # noqa: S603
+    return subprocess.run(  # noqa: S603  # nosec B603
         args,
         check=True,
         capture_output=True,
@@ -82,7 +82,7 @@ def _docker_quietly(args: list[str]) -> None:
     binary = shutil.which("docker")
     if binary is None:
         return
-    subprocess.run([binary, *args], capture_output=True, check=False)  # noqa: S603 — resolved binary, fixed argv
+    subprocess.run([binary, *args], capture_output=True, check=False)  # noqa: S603  # nosec B603 — resolved binary, fixed argv
 
 
 def _ping_heartbeat(url: str) -> None:
@@ -92,7 +92,7 @@ def _ping_heartbeat(url: str) -> None:
         logger.warning("notify.heartbeat_url is not an http(s) URL, skipping")
         return
     try:
-        with urllib.request.urlopen(url, timeout=HEARTBEAT_TIMEOUT_SECONDS):  # noqa: S310 — scheme checked above
+        with urllib.request.urlopen(url, timeout=HEARTBEAT_TIMEOUT_SECONDS):  # noqa: S310  # nosec B310 — scheme checked above
             pass
     except OSError as err:
         logger.warning("heartbeat ping failed: %s", err)
@@ -249,7 +249,7 @@ def fetch_backup(fetch: Plan, workdir: str) -> None:
     fetch_argv = build_fetch_command(fetch, workdir)
     if fetch_argv:
         # argv built by build_fetch_command from the plan's own fields.
-        subprocess.run(fetch_argv, check=True)  # noqa: S603
+        subprocess.run(fetch_argv, check=True)  # noqa: S603  # nosec B603
         return
     # ponytail: fetch.command is an arbitrary shell pipeline from the trusted
     # plan file, so shell=True is intentional. notify.on_failure is the only
