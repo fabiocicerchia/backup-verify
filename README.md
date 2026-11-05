@@ -112,7 +112,7 @@ publish workflow for that tag to sign it.
 ```sh
 backup-verify run backup-verify.yaml
 backup-verify run backup-verify.yaml --keep   # keep the scratch container to inspect failures
-backup-verify run backup-verify.yaml --json   # machine-readable output
+backup-verify run backup-verify.yaml --json   # only JSON on stdout; progress goes to stderr
 backup-verify run backup-verify.yaml --workdir /work   # where the backup is fetched to
 ```
 

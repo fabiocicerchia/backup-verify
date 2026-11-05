@@ -19,7 +19,7 @@ describing the fetch → restore → checks → notify loop, then:
 ```sh
 backup-verify run backup-verify.yaml
 backup-verify run backup-verify.yaml --keep   # keep the scratch container to inspect failures
-backup-verify run backup-verify.yaml --json   # machine-readable output
+backup-verify run backup-verify.yaml --json   # only JSON on stdout; progress goes to stderr
 ```
 
 Schedule it weekly in CI or cron; the scratch container is always torn down

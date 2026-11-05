@@ -468,17 +468,32 @@ def main(argv: list[str] | None = None) -> int:
         logger.exception("plan %s is not valid YAML", args.plan)
         return EXIT_DATAERR
 
-    results, ok, duration = run_plan(plan, keep=args.keep, workdir=args.workdir)
+    if args.json:
+        # With --json, stdout carries only the JSON document: progress and the
+        # fetch/notifier children's output go to stderr, redirected at the fd
+        # level so subprocesses that inherit stdout are covered too.
+        sys.stdout.flush()
+        saved_stdout = os.dup(1)
+        os.dup2(2, 1)
+    try:
+        results, ok, duration = run_plan(plan, keep=args.keep, workdir=args.workdir)
+    finally:
+        if args.json:
+            sys.stdout.flush()
+            os.dup2(saved_stdout, 1)
+            os.close(saved_stdout)
     if args.json:
         json.dump(
             {"ok": ok, "duration_seconds": round(duration, 1), "checks": results},
             sys.stdout,
             indent=2,
         )
-    print(  # noqa: T201 — run progress, on stdout
-        f"\nbackup-verify: {'PASS' if ok else 'FAIL'} "
-        f"({sum(r['status'] == 'pass' for r in results)}/{len(results)} checks, {duration:.1f}s)"
-    )
+        print()  # noqa: T201 — end the JSON document with a newline
+    else:
+        print(  # noqa: T201 — run progress, on stdout
+            f"\nbackup-verify: {'PASS' if ok else 'FAIL'} "
+            f"({sum(r['status'] == 'pass' for r in results)}/{len(results)} checks, {duration:.1f}s)"
+        )
     return EXIT_OK if ok else EXIT_CHECKS_FAILED
 
 
