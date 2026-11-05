@@ -124,7 +124,7 @@ backup-verify run plan.yaml --json
 ```
 
 The whole plan is in
-[`examples/backup-verify-sqlite-in-place.yaml`](../examples/backup-verify-sqlite-in-place.yaml).
+[`examples/backup-verify-sqlite-in-place.yaml`](https://github.com/fabiocicerchia/backup-verify/blob/main/examples/backup-verify-sqlite-in-place.yaml).
 
 ## `checks`
 
