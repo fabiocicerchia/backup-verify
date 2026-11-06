@@ -217,6 +217,22 @@ def test_failed_check_runs_on_failure_with_check_name(tmp_path: Path, monkeypatc
     assert env["BACKUP_VERIFY_ERROR"] == ""
 
 
+def test_json_flag_writes_only_json_to_stdout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
+) -> None:
+    calls: list[FakeCall] = []
+    monkeypatch.setattr(backup_verify.subprocess, "run", make_fake_run(calls, check_output="2"))
+    plan_file = tmp_path / "plan.yaml"
+    plan_file.write_text(json.dumps(make_plan([{"name": "row count", "command": "CHECK_CMD", "expect": "2"}], {})))
+
+    rc = backup_verify.main(["run", str(plan_file), "--json", "--workdir", str(tmp_path / "work")])
+
+    out, err = capfd.readouterr()
+    assert rc == backup_verify.EXIT_OK
+    assert json.loads(out)["ok"] is True
+    assert "row count" in err  # progress still shown, on stderr
+
+
 def test_success_pings_heartbeat_and_skips_on_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[FakeCall] = []
     monkeypatch.setattr(backup_verify.subprocess, "run", make_fake_run(calls, check_output="2"))

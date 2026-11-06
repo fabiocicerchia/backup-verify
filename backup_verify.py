@@ -14,6 +14,7 @@ Kubernetes CronJob pod, a throwaway VM. Same plan, same checks, no Docker.
 """
 
 import argparse
+import contextlib
 import json
 import logging
 import os
@@ -24,7 +25,7 @@ import tempfile
 import time
 import urllib.request
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Any
 
@@ -439,6 +440,21 @@ def run_plan(plan: Plan, keep: bool = False, workdir: str | None = None) -> tupl
     return results, ok, duration
 
 
+@contextlib.contextmanager
+def _stdout_to_stderr() -> Generator[None, None, None]:
+    """Send both sys.stdout and fd 1 to stderr; the fd covers subprocesses that inherit stdout."""
+    sys.stdout.flush()
+    saved = os.dup(1)
+    os.dup2(2, 1)
+    try:
+        with contextlib.redirect_stdout(sys.stderr):
+            yield
+    finally:
+        sys.stdout.flush()
+        os.dup2(saved, 1)
+        os.close(saved)
+
+
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(format="backup-verify: %(message)s", stream=sys.stderr, level=logging.INFO)
     parser = argparse.ArgumentParser(
@@ -468,17 +484,21 @@ def main(argv: list[str] | None = None) -> int:
         logger.exception("plan %s is not valid YAML", args.plan)
         return EXIT_DATAERR
 
-    results, ok, duration = run_plan(plan, keep=args.keep, workdir=args.workdir)
+    # With --json, stdout carries only the JSON document: progress and the children's output go to stderr.
+    with _stdout_to_stderr() if args.json else contextlib.nullcontext():
+        results, ok, duration = run_plan(plan, keep=args.keep, workdir=args.workdir)
     if args.json:
         json.dump(
             {"ok": ok, "duration_seconds": round(duration, 1), "checks": results},
             sys.stdout,
             indent=2,
         )
-    print(  # noqa: T201 — run progress, on stdout
-        f"\nbackup-verify: {'PASS' if ok else 'FAIL'} "
-        f"({sum(r['status'] == 'pass' for r in results)}/{len(results)} checks, {duration:.1f}s)"
-    )
+        print()  # noqa: T201 — end the JSON document with a newline
+    else:
+        print(  # noqa: T201 — run progress, on stdout
+            f"\nbackup-verify: {'PASS' if ok else 'FAIL'} "
+            f"({sum(r['status'] == 'pass' for r in results)}/{len(results)} checks, {duration:.1f}s)"
+        )
     return EXIT_OK if ok else EXIT_CHECKS_FAILED
 
 
