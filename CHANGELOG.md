@@ -4,6 +4,16 @@ This file is maintained automatically by
 [release-please](https://github.com/googleapis/release-please) from Conventional
 Commit messages — don't edit it by hand.
 
+## [0.5.1](https://github.com/fabiocicerchia/backup-verify/compare/v0.5.0...v0.5.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* --json output is not valid JSON on stdout ([#154](https://github.com/fabiocicerchia/backup-verify/issues/154)) ([79ae289](https://github.com/fabiocicerchia/backup-verify/commit/79ae289eb2d0132b7cd6ccc6b1db342695a0da5c))
+* bandit warns in the repository ([#147](https://github.com/fabiocicerchia/backup-verify/issues/147)) ([62e2dda](https://github.com/fabiocicerchia/backup-verify/commit/62e2ddabb7ff46cb1d7bc98038863161fa69c1ec))
+* main is red in docs.yml since 2026-09-21 ([#153](https://github.com/fabiocicerchia/backup-verify/issues/153)) ([4f9a303](https://github.com/fabiocicerchia/backup-verify/commit/4f9a3030b3b3c6db66f147ac6550c79b2cd2222e))
+* Upgrade certifi 2026.7.22 → 2026.10.18 ([#146](https://github.com/fabiocicerchia/backup-verify/issues/146)) ([5abd84e](https://github.com/fabiocicerchia/backup-verify/commit/5abd84e9f0d5e75c8444c66878d58937555ace20))
+
 ## [0.5.0](https://github.com/fabiocicerchia/backup-verify/compare/v0.4.4...v0.5.0) (2026-09-21)
 
 
