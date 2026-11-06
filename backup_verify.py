@@ -14,6 +14,7 @@ Kubernetes CronJob pod, a throwaway VM. Same plan, same checks, no Docker.
 """
 
 import argparse
+import contextlib
 import json
 import logging
 import os
@@ -24,7 +25,7 @@ import tempfile
 import time
 import urllib.request
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Any
 
@@ -439,6 +440,21 @@ def run_plan(plan: Plan, keep: bool = False, workdir: str | None = None) -> tupl
     return results, ok, duration
 
 
+@contextlib.contextmanager
+def _stdout_to_stderr() -> Generator[None, None, None]:
+    """Send both sys.stdout and fd 1 to stderr; the fd covers subprocesses that inherit stdout."""
+    sys.stdout.flush()
+    saved = os.dup(1)
+    os.dup2(2, 1)
+    try:
+        with contextlib.redirect_stdout(sys.stderr):
+            yield
+    finally:
+        sys.stdout.flush()
+        os.dup2(saved, 1)
+        os.close(saved)
+
+
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(format="backup-verify: %(message)s", stream=sys.stderr, level=logging.INFO)
     parser = argparse.ArgumentParser(
@@ -468,20 +484,9 @@ def main(argv: list[str] | None = None) -> int:
         logger.exception("plan %s is not valid YAML", args.plan)
         return EXIT_DATAERR
 
-    if args.json:
-        # With --json, stdout carries only the JSON document: progress and the
-        # fetch/notifier children's output go to stderr, redirected at the fd
-        # level so subprocesses that inherit stdout are covered too.
-        sys.stdout.flush()
-        saved_stdout = os.dup(1)
-        os.dup2(2, 1)
-    try:
+    # With --json, stdout carries only the JSON document: progress and the children's output go to stderr.
+    with _stdout_to_stderr() if args.json else contextlib.nullcontext():
         results, ok, duration = run_plan(plan, keep=args.keep, workdir=args.workdir)
-    finally:
-        if args.json:
-            sys.stdout.flush()
-            os.dup2(saved_stdout, 1)
-            os.close(saved_stdout)
     if args.json:
         json.dump(
             {"ok": ok, "duration_seconds": round(duration, 1), "checks": results},
