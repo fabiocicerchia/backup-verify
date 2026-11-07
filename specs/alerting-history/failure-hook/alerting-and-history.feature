@@ -40,7 +40,7 @@ Feature: Alerting and run history
 
     Examples:
       | problem             | extra                                                       |
-      | exits with status 3 | nothing else is shown                                       |
+      | exits with status 3 | no warning is shown                                         |
       | cannot be started   | the warning "could not run notify.on_failure: ..." is shown |
 
   @id:alerting-history.failure-hook.004 @rule:alerting-history.run-history.one-line-per-run @verified @source:backup_verify.py#append_run_history @test:tests/test_backup_verify.py#test_append_history_writes_one_json_line_per_call @test:tests/test_backup_verify.py#test_fetch_failure_records_history_and_runs_on_failure

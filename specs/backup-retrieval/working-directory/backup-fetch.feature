@@ -21,7 +21,6 @@ Feature: Fetching the backup to verify
     When the operator runs the plan
     Then the command runs through the shell with $BACKUP_VERIFY_WORKDIR set to the run's working directory
     And rows.txt is in the working directory for the load to read
-    And if the command exits non-zero the run errors before any restore
 
   @id:backup-retrieval.working-directory.003 @rule:backup-retrieval.working-directory.absolute-fresh-by-default @verified @source:backup_verify.py#run_plan @test:tests/test_backup_verify.py#test_relative_workdir_is_resolved_before_anything_uses_it
   Scenario Outline: The working directory is a fresh temporary directory unless chosen, and is always absolute

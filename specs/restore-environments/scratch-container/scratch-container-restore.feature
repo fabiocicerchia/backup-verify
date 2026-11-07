@@ -12,7 +12,6 @@ Feature: Restoring into a scratch container
     Then a container is started from postgres:16-alpine
     And the fetched backup is mounted at /work inside it
     And it has POSTGRES_PASSWORD=example, a 512m memory limit and a 1.5 CPU limit
-    And without memory or cpus in the plan no limit is set
 
   @id:restore-environments.scratch-container.002 @rule:restore-environments.network-isolation.private-internal-network-per-run @verified @source:backup_verify.py#run_plan @test:tests/test_backup_verify.py#test_build_run_args_attaches_network_and_no_limits_by_default
   Scenario: Each run gets its own network with no outside access
@@ -46,7 +45,7 @@ Feature: Restoring into a scratch container
       | passes every check  | without --keep | gone          |
       | fails a check       | without --keep | gone          |
       | never becomes ready | without --keep | gone          |
-      | fails a check       | with --keep    | still running |
+      | fails a check       | with --keep    | left in place |
 
   @id:restore-environments.scratch-container.005 @rule:restore-environments.teardown.failed-start-leaks-network @gap @source:backup_verify.py#run_plan @questionable
   Scenario: A container that fails to start leaves its run's network behind

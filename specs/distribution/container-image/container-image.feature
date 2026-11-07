@@ -21,6 +21,7 @@ Feature: Running backup-verify from its container image
   @id:distribution.container-image.003 @rule:distribution.container-image.no-container-client @inferred @source:Dockerfile#runtime stage @questionable
   Scenario: A plan that needs a scratch container cannot run from the image, even with the host socket mounted
     Given a verification plan with a restore image set
+    And a fetch command that can run inside the image
     And the host container runtime socket is mounted into the container
     When the operator runs the image with that plan
     Then the run fails with the error "docker is not on PATH"

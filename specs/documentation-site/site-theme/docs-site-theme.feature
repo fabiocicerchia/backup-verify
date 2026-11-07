@@ -9,15 +9,15 @@ Feature: Branding the documentation site
   Scenario: The docs and the splash page use the same orange-red accent pair
     Given the accent pair is orange #fb923c and red #ef4444
     When a reader opens the splash page and then the rendered docs
-    Then the splash title, install label and buttons use the orange-to-red accent
-    And the docs header, links and primary buttons use the same orange and red
+    Then the splash title and GitHub button use the orange-to-red gradient, and its install label and docs link use the red
+    And the docs links and primary buttons use the same orange and red
     And changing the accent pair once changes both pages
 
   @id:documentation-site.site-theme.002 @rule:docs.site-theme.no-external-font-requests @inferred @source:docs/stylesheets/extra.css#:root
   Scenario: The docs load no web fonts and use the reader's system fonts
     Given a reader whose browser blocks all third-party requests
     When the reader opens any docs page
-    Then body text shows in the system sans-serif stack starting with -apple-system and Segoe UI
+    Then body text shows in the system sans-serif stack starting with -apple-system
     And code shows in the system monospace stack starting with ui-monospace
     And no font is fetched from a font CDN
 

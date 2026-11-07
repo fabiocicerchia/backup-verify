@@ -41,7 +41,7 @@ Feature: Judging the restored backup with smoke checks
 
   @id:smoke-checks.check-results.004 @rule:smoke-checks.check-results.no-checks-passes @verified @source:backup_verify.py#run_plan @test:tests/test_backup_verify.py#test_in_place_ignores_container_only_limits @questionable
   Scenario: A plan with no checks passes
-    Given the plan lists no checks
+    Given the plan lists no checks and has a heartbeat URL
     When the operator runs the plan and the dump loads
     Then "backup-verify: PASS (0/0 checks, <seconds>s)" is shown
     And the heartbeat is pinged and the exit status is 0

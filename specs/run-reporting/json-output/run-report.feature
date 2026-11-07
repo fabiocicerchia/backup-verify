@@ -18,5 +18,4 @@ Feature: Reporting the run's verdict
     Given a plan with a check "row count" that passes with output 2
     When the operator runs the plan with --json
     Then stdout is a single JSON document {"ok": true, "duration_seconds": 4.2, "checks": [{"name": "row count", "status": "pass", "output": "2"}]}
-    And progress lines, ✓/✗ lines and the output of the fetch, load and check commands go to stderr
-    And a failed check's output field holds its failure reason
+    And progress lines, ✓/✗ lines and the fetch command's own output go to stderr
