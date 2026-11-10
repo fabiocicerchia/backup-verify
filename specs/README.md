@@ -21,8 +21,7 @@ How backup-verify is packaged and installed for operators.
 ## Documentation site
 The look of the project's published documentation.
 
-- **Content styling**: [Styling documentation content](documentation-site/content-styling/docs-content-styling.feature) (1)
-- **Site theme**: [Branding the documentation site](documentation-site/site-theme/docs-site-theme.feature) (4)
+- **Site theme**: [Branding the documentation site](documentation-site/site-theme/docs-site-theme.feature) (1)
 
 ## Restore environments
 Where the backup gets loaded and the plan's commands run: a disposable container, or the current machine.

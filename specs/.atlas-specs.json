@@ -242,7 +242,12 @@
   "backup-verify/makefile": [],
   "docs/stylesheets": []
  },
- "retired": [],
+ "retired": [
+  "documentation-site.content-styling.001",
+  "documentation-site.site-theme.001",
+  "documentation-site.site-theme.003",
+  "documentation-site.site-theme.004"
+ ],
  "scenarios": {
   "alerting-history.failure-hook.001": {
    "file": "specs/alerting-history/failure-hook/alerting-and-history.feature",
@@ -373,52 +378,12 @@
    "test": "",
    "tests": []
   },
-  "documentation-site.content-styling.001": {
-   "file": "specs/documentation-site/content-styling/docs-content-styling.feature",
-   "fingerprint": "2ad0ed48ff62",
-   "human": false,
-   "rule": "docs.content-styling.accent-gradient-calls-to-action",
-   "source": "docs/stylesheets/extra.css#.md-typeset .hero h1",
-   "status": "inferred",
-   "test": "",
-   "tests": []
-  },
-  "documentation-site.site-theme.001": {
-   "file": "specs/documentation-site/site-theme/docs-site-theme.feature",
-   "fingerprint": "ac660254fd34",
-   "human": false,
-   "rule": "docs.site-theme.one-accent-palette-shared-with-splash",
-   "source": "docs/stylesheets/extra.css#:root",
-   "status": "inferred",
-   "test": "",
-   "tests": []
-  },
   "documentation-site.site-theme.002": {
    "file": "specs/documentation-site/site-theme/docs-site-theme.feature",
    "fingerprint": "ac660254fd34",
    "human": false,
    "rule": "docs.site-theme.no-external-font-requests",
    "source": "docs/stylesheets/extra.css#:root",
-   "status": "inferred",
-   "test": "",
-   "tests": []
-  },
-  "documentation-site.site-theme.003": {
-   "file": "specs/documentation-site/site-theme/docs-site-theme.feature",
-   "fingerprint": "433084a194b6",
-   "human": false,
-   "rule": "docs.site-theme.legible-links-in-each-scheme",
-   "source": "docs/stylesheets/extra.css#[data-md-color-scheme=\"slate\"]",
-   "status": "inferred",
-   "test": "",
-   "tests": []
-  },
-  "documentation-site.site-theme.004": {
-   "file": "specs/documentation-site/site-theme/docs-site-theme.feature",
-   "fingerprint": "c702704e5aae",
-   "human": false,
-   "rule": "docs.site-theme.no-stand-in-logo",
-   "source": "docs/stylesheets/extra.css#.md-header__button.md-logo",
    "status": "inferred",
    "test": "",
    "tests": []
@@ -711,7 +676,7 @@
       "title": "Numeric bounds"
      },
      {
-      "description": "Recording a pass or fail with output or reason for each check, and printing a \u2713/\u2717 line for it as the run goes.",
+      "description": "Recording a pass or fail with output or reason for each check, and printing a ✓/✗ line for it as the run goes.",
       "slug": "check-results",
       "title": "Check results"
      }
