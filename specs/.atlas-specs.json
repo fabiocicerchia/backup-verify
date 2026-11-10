@@ -1,0 +1,790 @@
+{
+ "excluded": {
+  "backup-verify/backup-verify": [
+   {
+    "candidate": "Native fetcher lookup table and shell fallback selection",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "backup_verify.py#build_fetch_command"
+   },
+   {
+    "candidate": "docker binary resolved once through PATH",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "backup_verify.py#docker"
+   },
+   {
+    "candidate": "Missing docker reported as 'docker is not on PATH'",
+    "covered_by": "run-reporting.exit-codes.errored-run-crashes-with-status-1",
+    "reason": "DUPLICATE_OF",
+    "source": "backup_verify.py#docker"
+   },
+   {
+    "candidate": "fd-level stdout redirect for child processes under --json",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "backup_verify.py#_stdout_to_stderr"
+   },
+   {
+    "candidate": "Heartbeat 10s timeout and 2s readiness poll interval",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "backup_verify.py#wait_until_ready"
+   },
+   {
+    "candidate": "Load command runs before the checks",
+    "covered_by": "restore-environments.readiness-wait.retry-until-ready-or-timeout",
+    "reason": "DUPLICATE_OF",
+    "source": "backup_verify.py#restore_and_check"
+   },
+   {
+    "candidate": "Progress lines 'fetching latest backup', 'loading dump', 'starting scratch container'",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "backup_verify.py#run_plan"
+   },
+   {
+    "candidate": "Log line prefix format 'backup-verify: '",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "backup_verify.py#main"
+   },
+   {
+    "candidate": "Exact match applied before numeric bounds when both set",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "backup_verify.py#evaluate"
+   },
+   {
+    "candidate": "--keep has no effect in place",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "backup_verify.py#run_plan"
+   },
+   {
+    "candidate": "Plan that is valid YAML but not a mapping crashes",
+    "covered_by": "run-reporting.exit-codes.errored-run-crashes-with-status-1",
+    "reason": "DUPLICATE_OF",
+    "source": "backup_verify.py#run_plan"
+   },
+   {
+    "candidate": "Example plans are well formed",
+    "covered_by": "",
+    "reason": "TECH_DEVTOOLING",
+    "source": "tests/test_examples.py#test_example_plans_are_well_formed"
+   }
+  ],
+  "backup-verify/dockerfile": [
+   {
+    "candidate": "Multi-stage build: wheel built in a build stage and copied into the runtime stage",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "Dockerfile#build stage"
+   },
+   {
+    "candidate": "Base images pinned by sha256 digest",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "Dockerfile#build stage"
+   },
+   {
+    "candidate": "Build and runtime dependencies installed with --require-hashes from lockfiles; wheel installed with --no-deps and --no-build-isolation",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "Dockerfile#runtime stage"
+   },
+   {
+    "candidate": "Temporary wheel and requirements file removed from /tmp after install",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "Dockerfile#runtime stage"
+   },
+   {
+    "candidate": "Read-only root filesystem recommended via --read-only",
+    "covered_by": "",
+    "reason": "UNVERIFIABLE",
+    "source": "Dockerfile#runtime stage"
+   },
+   {
+    "candidate": "Working directory /app in the runtime image",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "Dockerfile#runtime stage"
+   }
+  ],
+  "backup-verify/makefile": [
+   {
+    "candidate": "make help lists every target with its description",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "Makefile#help"
+   },
+   {
+    "candidate": "make setup installs the pre-commit hook",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "Makefile#setup"
+   },
+   {
+    "candidate": "make install installs the package with pip",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "Makefile#install"
+   },
+   {
+    "candidate": "make dev does an editable install with the dev extras",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "Makefile#dev"
+   },
+   {
+    "candidate": "make lint runs every pre-commit hook on all files (CLAUDE.md still says it runs `ruff check .`, so the docs are out of date)",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "Makefile#lint"
+   },
+   {
+    "candidate": "make test runs pytest -q",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "Makefile#test"
+   },
+   {
+    "candidate": "make build builds the sdist and wheel with python -m build",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "Makefile#build"
+   },
+   {
+    "candidate": "make run only prints `backup-verify --help` and does not run a plan",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "Makefile#run"
+   },
+   {
+    "candidate": "make format rewrites the sources with ruff format",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "Makefile#format"
+   },
+   {
+    "candidate": "make analyze type-checks the package with basedpyright",
+    "covered_by": "",
+    "reason": "TECH_BUILD",
+    "source": "Makefile#analyze"
+   }
+  ],
+  "docs/stylesheets": [
+   {
+    "candidate": "Translucent blurred header with hairline divider and shadow on scroll",
+    "covered_by": "",
+    "reason": "INTERNAL_MECHANISM",
+    "source": "docs/stylesheets/extra.css#.md-header"
+   },
+   {
+    "candidate": "Nav tab opacity and weight for active/hover tabs",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "docs/stylesheets/extra.css#.md-tabs__link"
+   },
+   {
+    "candidate": "Heading weights, letter-spacing and h2 top margin",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "docs/stylesheets/extra.css#.md-typeset h1"
+   },
+   {
+    "candidate": "Rounded bordered code blocks",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "docs/stylesheets/extra.css#.md-typeset .highlight"
+   },
+   {
+    "candidate": "Tables drawn as rounded cards with uppercase headers (overflow: hidden, scrolling comes from the theme's wrapper)",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "docs/stylesheets/extra.css#.md-typeset table:not([class])"
+   },
+   {
+    "candidate": "Feature cards lift on hover with accent border and accent-coloured icons",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "docs/stylesheets/extra.css#.md-typeset .grid.cards > ul > li"
+   },
+   {
+    "candidate": "Sidebar title and active link weights",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "docs/stylesheets/extra.css#.md-nav__title"
+   },
+   {
+    "candidate": "Footer background, divider and muted link colour",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "docs/stylesheets/extra.css#.md-footer-meta"
+   },
+   {
+    "candidate": "Smooth scrolling for in-page anchors",
+    "covered_by": "",
+    "reason": "TRIVIAL",
+    "source": "docs/stylesheets/extra.css#html"
+   }
+  ]
+ },
+ "lifted": {
+  "backup-verify/backup-verify": [],
+  "backup-verify/dockerfile": [
+   {
+    "from_source": "Dockerfile#runtime stage",
+    "rule": "distribution.container-image.runs-as-non-root"
+   }
+  ],
+  "backup-verify/makefile": [],
+  "docs/stylesheets": []
+ },
+ "retired": [
+  "documentation-site.content-styling.001",
+  "documentation-site.site-theme.001",
+  "documentation-site.site-theme.003",
+  "documentation-site.site-theme.004"
+ ],
+ "scenarios": {
+  "alerting-history.failure-hook.001": {
+   "file": "specs/alerting-history/failure-hook/alerting-and-history.feature",
+   "fingerprint": "893794eceabe",
+   "human": false,
+   "rule": "alerting-history.heartbeat.ping-only-on-pass",
+   "source": "backup_verify.py#_ping_heartbeat",
+   "status": "verified",
+   "test": "tests/test_backup_verify.py#test_success_pings_heartbeat_and_skips_on_failure",
+   "tests": [
+    "tests/test_backup_verify.py#test_success_pings_heartbeat_and_skips_on_failure"
+   ]
+  },
+  "alerting-history.failure-hook.002": {
+   "file": "specs/alerting-history/failure-hook/alerting-and-history.feature",
+   "fingerprint": "5a8e5b451a0a",
+   "human": false,
+   "rule": "alerting-history.failure-hook.fires-with-context",
+   "source": "backup_verify.py#run_failure_hook",
+   "status": "verified",
+   "test": "tests/test_backup_verify.py#test_failed_check_runs_on_failure_with_check_name",
+   "tests": [
+    "tests/test_backup_verify.py#test_failed_check_runs_on_failure_with_check_name",
+    "tests/test_backup_verify.py#test_fetch_failure_records_history_and_runs_on_failure",
+    "tests/test_backup_verify.py#test_success_pings_heartbeat_and_skips_on_failure"
+   ]
+  },
+  "alerting-history.failure-hook.003": {
+   "file": "specs/alerting-history/failure-hook/alerting-and-history.feature",
+   "fingerprint": "5a8e5b451a0a",
+   "human": false,
+   "rule": "alerting-history.failure-hook.never-changes-outcome",
+   "source": "backup_verify.py#run_failure_hook",
+   "status": "verified",
+   "test": "tests/test_backup_verify.py#test_on_failure_nonzero_exit_does_not_change_outcome",
+   "tests": [
+    "tests/test_backup_verify.py#test_on_failure_nonzero_exit_does_not_change_outcome",
+    "tests/test_backup_verify.py#test_unspawnable_notifier_is_logged_as_a_warning"
+   ]
+  },
+  "alerting-history.failure-hook.004": {
+   "file": "specs/alerting-history/failure-hook/alerting-and-history.feature",
+   "fingerprint": "77220abe9ea1",
+   "human": false,
+   "rule": "alerting-history.run-history.one-line-per-run",
+   "source": "backup_verify.py#append_run_history",
+   "status": "verified",
+   "test": "tests/test_backup_verify.py#test_append_history_writes_one_json_line_per_call",
+   "tests": [
+    "tests/test_backup_verify.py#test_append_history_writes_one_json_line_per_call",
+    "tests/test_backup_verify.py#test_fetch_failure_records_history_and_runs_on_failure"
+   ]
+  },
+  "backup-retrieval.working-directory.001": {
+   "file": "specs/backup-retrieval/working-directory/backup-fetch.feature",
+   "fingerprint": "93c194336b4e",
+   "human": false,
+   "rule": "backup-retrieval.native-fetch.restore-into-workdir",
+   "source": "backup_verify.py#build_fetch_command",
+   "status": "verified",
+   "test": "tests/test_backup_verify.py#test_build_fetch_command_restic",
+   "tests": [
+    "tests/test_backup_verify.py#test_build_fetch_command_restic",
+    "tests/test_backup_verify.py#test_build_fetch_command_pgbackrest"
+   ]
+  },
+  "backup-retrieval.working-directory.002": {
+   "file": "specs/backup-retrieval/working-directory/backup-fetch.feature",
+   "fingerprint": "1461d8948369",
+   "human": false,
+   "rule": "backup-retrieval.custom-fetch.workdir-in-environment",
+   "source": "backup_verify.py#fetch_backup",
+   "status": "verified",
+   "test": "tests/test_backup_verify.py#test_in_place_run_loads_and_checks_without_docker",
+   "tests": [
+    "tests/test_backup_verify.py#test_in_place_run_loads_and_checks_without_docker"
+   ]
+  },
+  "backup-retrieval.working-directory.003": {
+   "file": "specs/backup-retrieval/working-directory/backup-fetch.feature",
+   "fingerprint": "bc00d2243b5f",
+   "human": false,
+   "rule": "backup-retrieval.working-directory.absolute-fresh-by-default",
+   "source": "backup_verify.py#run_plan",
+   "status": "verified",
+   "test": "tests/test_backup_verify.py#test_relative_workdir_is_resolved_before_anything_uses_it",
+   "tests": [
+    "tests/test_backup_verify.py#test_relative_workdir_is_resolved_before_anything_uses_it"
+   ]
+  },
+  "distribution.container-image.001": {
+   "file": "specs/distribution/container-image/container-image.feature",
+   "fingerprint": "8ba8de1d7dff",
+   "human": false,
+   "rule": "distribution.container-image.entrypoint-is-cli",
+   "source": "Dockerfile#runtime stage",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "distribution.container-image.002": {
+   "file": "specs/distribution/container-image/container-image.feature",
+   "fingerprint": "8ba8de1d7dff",
+   "human": false,
+   "rule": "distribution.container-image.runs-as-non-root",
+   "source": "Dockerfile#runtime stage",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "distribution.container-image.003": {
+   "file": "specs/distribution/container-image/container-image.feature",
+   "fingerprint": "8ba8de1d7dff",
+   "human": false,
+   "rule": "distribution.container-image.no-container-client",
+   "source": "Dockerfile#runtime stage",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "distribution.container-image.004": {
+   "file": "specs/distribution/container-image/container-image.feature",
+   "fingerprint": "5acb6e7c5560",
+   "human": false,
+   "rule": "distribution.container-image.health-reflects-interpreter-only",
+   "source": "Dockerfile#HEALTHCHECK",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "documentation-site.site-theme.002": {
+   "file": "specs/documentation-site/site-theme/docs-site-theme.feature",
+   "fingerprint": "ac660254fd34",
+   "human": false,
+   "rule": "docs.site-theme.no-external-font-requests",
+   "source": "docs/stylesheets/extra.css#:root",
+   "status": "inferred",
+   "test": "",
+   "tests": []
+  },
+  "restore-environments.in-place-restore.001": {
+   "file": "specs/restore-environments/in-place-restore/in-place-restore.feature",
+   "fingerprint": "20ee818d8fc9",
+   "human": false,
+   "rule": "restore-environments.in-place-restore.runs-in-workdir",
+   "source": "backup_verify.py#local_runner",
+   "status": "verified",
+   "test": "tests/test_backup_verify.py#test_in_place_run_loads_and_checks_without_docker",
+   "tests": [
+    "tests/test_backup_verify.py#test_in_place_run_loads_and_checks_without_docker",
+    "tests/test_backup_verify.py#test_relative_workdir_is_resolved_before_anything_uses_it"
+   ]
+  },
+  "restore-environments.in-place-restore.002": {
+   "file": "specs/restore-environments/in-place-restore/in-place-restore.feature",
+   "fingerprint": "bc00d2243b5f",
+   "human": false,
+   "rule": "restore-environments.in-place-restore.container-limits-ignored-with-warning",
+   "source": "backup_verify.py#run_plan",
+   "status": "verified",
+   "test": "tests/test_backup_verify.py#test_in_place_ignores_container_only_limits",
+   "tests": [
+    "tests/test_backup_verify.py#test_in_place_ignores_container_only_limits"
+   ]
+  },
+  "restore-environments.scratch-container.001": {
+   "file": "specs/restore-environments/scratch-container/scratch-container-restore.feature",
+   "fingerprint": "c75ecee137ab",
+   "human": false,
+   "rule": "restore-environments.scratch-container.container-from-plan",
+   "source": "backup_verify.py#build_run_args",
+   "status": "verified",
+   "test": "tests/test_backup_verify.py#test_build_run_args_attaches_network_and_no_limits_by_default",
+   "tests": [
+    "tests/test_backup_verify.py#test_build_run_args_attaches_network_and_no_limits_by_default",
+    "tests/test_backup_verify.py#test_build_run_args_applies_resource_limits"
+   ]
+  },
+  "restore-environments.scratch-container.002": {
+   "file": "specs/restore-environments/scratch-container/scratch-container-restore.feature",
+   "fingerprint": "bc00d2243b5f",
+   "human": false,
+   "rule": "restore-environments.network-isolation.private-internal-network-per-run",
+   "source": "backup_verify.py#run_plan",
+   "status": "verified",
+   "test": "tests/test_backup_verify.py#test_build_run_args_attaches_network_and_no_limits_by_default",
+   "tests": [
+    "tests/test_backup_verify.py#test_build_run_args_attaches_network_and_no_limits_by_default"
+   ]
+  },
+  "restore-environments.scratch-container.003": {
+   "file": "specs/restore-environments/scratch-container/scratch-container-restore.feature",
+   "fingerprint": "2706e1b53832",
+   "human": false,
+   "rule": "restore-environments.readiness-wait.retry-until-ready-or-timeout",
+   "source": "backup_verify.py#wait_until_ready",
+   "status": "gap",
+   "test": "",
+   "tests": []
+  },
+  "restore-environments.scratch-container.004": {
+   "file": "specs/restore-environments/scratch-container/scratch-container-restore.feature",
+   "fingerprint": "bc00d2243b5f",
+   "human": false,
+   "rule": "restore-environments.teardown.removed-unless-kept",
+   "source": "backup_verify.py#run_plan",
+   "status": "gap",
+   "test": "",
+   "tests": []
+  },
+  "restore-environments.scratch-container.005": {
+   "file": "specs/restore-environments/scratch-container/scratch-container-restore.feature",
+   "fingerprint": "bc00d2243b5f",
+   "human": false,
+   "rule": "restore-environments.teardown.failed-start-leaks-network",
+   "source": "backup_verify.py#run_plan",
+   "status": "gap",
+   "test": "",
+   "tests": []
+  },
+  "run-reporting.exit-codes.001": {
+   "file": "specs/run-reporting/exit-codes/exit-codes.feature",
+   "fingerprint": "771b610868d7",
+   "human": false,
+   "rule": "run-reporting.exit-codes.status-per-outcome",
+   "source": "backup_verify.py#main",
+   "status": "verified",
+   "test": "tests/test_backup_verify.py#test_missing_plan_file_exits_noinput",
+   "tests": [
+    "tests/test_backup_verify.py#test_missing_plan_file_exits_noinput",
+    "tests/test_backup_verify.py#test_unparsable_plan_exits_dataerr",
+    "tests/test_backup_verify.py#test_json_flag_writes_only_json_to_stdout"
+   ]
+  },
+  "run-reporting.exit-codes.002": {
+   "file": "specs/run-reporting/exit-codes/exit-codes.feature",
+   "fingerprint": "771b610868d7",
+   "human": false,
+   "rule": "run-reporting.exit-codes.errored-run-crashes-with-status-1",
+   "source": "backup_verify.py#main",
+   "status": "gap",
+   "test": "",
+   "tests": []
+  },
+  "run-reporting.json-output.001": {
+   "file": "specs/run-reporting/json-output/run-report.feature",
+   "fingerprint": "771b610868d7",
+   "human": false,
+   "rule": "run-reporting.console-summary.pass-fail-line",
+   "source": "backup_verify.py#main",
+   "status": "gap",
+   "test": "",
+   "tests": []
+  },
+  "run-reporting.json-output.002": {
+   "file": "specs/run-reporting/json-output/run-report.feature",
+   "fingerprint": "771b610868d7",
+   "human": false,
+   "rule": "run-reporting.json-output.json-only-on-stdout",
+   "source": "backup_verify.py#main",
+   "status": "verified",
+   "test": "tests/test_backup_verify.py#test_json_flag_writes_only_json_to_stdout",
+   "tests": [
+    "tests/test_backup_verify.py#test_json_flag_writes_only_json_to_stdout"
+   ]
+  },
+  "smoke-checks.check-results.001": {
+   "file": "specs/smoke-checks/check-results/smoke-checks.feature",
+   "fingerprint": "e69b529eed35",
+   "human": false,
+   "rule": "smoke-checks.exact-match.trimmed-output-equals-expected",
+   "source": "backup_verify.py#evaluate",
+   "status": "verified",
+   "test": "tests/test_backup_verify.py#test_exact_expectation",
+   "tests": [
+    "tests/test_backup_verify.py#test_exact_expectation"
+   ]
+  },
+  "smoke-checks.check-results.002": {
+   "file": "specs/smoke-checks/check-results/smoke-checks.feature",
+   "fingerprint": "e69b529eed35",
+   "human": false,
+   "rule": "smoke-checks.numeric-bounds.number-within-min-max",
+   "source": "backup_verify.py#evaluate",
+   "status": "verified",
+   "test": "tests/test_backup_verify.py#test_min_max_bounds",
+   "tests": [
+    "tests/test_backup_verify.py#test_min_max_bounds",
+    "tests/test_backup_verify.py#test_non_numeric_output_for_numeric_check"
+   ]
+  },
+  "smoke-checks.check-results.003": {
+   "file": "specs/smoke-checks/check-results/smoke-checks.feature",
+   "fingerprint": "30ad8290c144",
+   "human": false,
+   "rule": "smoke-checks.check-results.erroring-check-aborts-run",
+   "source": "backup_verify.py#run_checks",
+   "status": "gap",
+   "test": "",
+   "tests": []
+  },
+  "smoke-checks.check-results.004": {
+   "file": "specs/smoke-checks/check-results/smoke-checks.feature",
+   "fingerprint": "bc00d2243b5f",
+   "human": false,
+   "rule": "smoke-checks.check-results.no-checks-passes",
+   "source": "backup_verify.py#run_plan",
+   "status": "verified",
+   "test": "tests/test_backup_verify.py#test_in_place_ignores_container_only_limits",
+   "tests": [
+    "tests/test_backup_verify.py#test_in_place_ignores_container_only_limits"
+   ]
+  },
+  "verification-plans.plan-validation.001": {
+   "file": "specs/verification-plans/plan-validation/plan-validation.feature",
+   "fingerprint": "2cf3494f67e4",
+   "human": false,
+   "rule": "verification-plans.plan-validation.restore-environment-must-be-unambiguous",
+   "source": "backup_verify.py#validate_restore",
+   "status": "verified",
+   "test": "tests/test_backup_verify.py#test_empty_image_is_a_plan_error_not_a_request_to_restore_in_place",
+   "tests": [
+    "tests/test_backup_verify.py#test_empty_image_is_a_plan_error_not_a_request_to_restore_in_place",
+    "tests/test_backup_verify.py#test_image_without_ready_command_is_a_plan_error"
+   ]
+  }
+ },
+ "taxonomy": {
+  "domains": [
+   {
+    "areas": [
+     {
+      "description": "Reading the plan file from disk and rejecting missing or malformed YAML with a clear error and a distinct exit code.",
+      "slug": "plan-loading",
+      "title": "Plan loading"
+     },
+     {
+      "description": "Rejecting restore settings that would silently run in the wrong environment, such as an empty image or a container without a readiness command, before any backup is fetched.",
+      "slug": "plan-validation",
+      "title": "Plan validation"
+     },
+     {
+      "description": "The `run` command and its options for picking a plan, keeping the scratch container, choosing a working directory and asking for JSON output.",
+      "slug": "run-command",
+      "title": "Run command"
+     }
+    ],
+    "description": "The YAML plan that describes one backup verification and how the tool reads and checks it before doing any work.",
+    "slug": "verification-plans",
+    "title": "Verification plans"
+   },
+   {
+    "areas": [
+     {
+      "description": "Restoring a snapshot from a restic repository, latest by default, with an optional password file and target directory.",
+      "slug": "restic-fetch",
+      "title": "Restic restores"
+     },
+     {
+      "description": "Restoring a PostgreSQL stanza with pgBackRest into a data path, with extra arguments passed straight through.",
+      "slug": "pgbackrest-fetch",
+      "title": "pgBackRest restores"
+     },
+     {
+      "description": "Running an operator-supplied shell command to fetch the backup, with the working directory passed in an environment variable.",
+      "slug": "custom-fetch",
+      "title": "Custom fetch commands"
+     },
+     {
+      "description": "Where the fetched backup lives: a fresh temporary directory by default or one the user picks, always turned into an absolute path.",
+      "slug": "working-directory",
+      "title": "Working directory"
+     }
+    ],
+    "description": "Getting the latest backup into a working directory, either through a built-in backup tool or a custom command.",
+    "slug": "backup-retrieval",
+    "title": "Backup retrieval"
+   },
+   {
+    "areas": [
+     {
+      "description": "Starting a throwaway container from the plan's image with the backup mounted at /work, plus environment variables and memory and CPU limits.",
+      "slug": "scratch-container",
+      "title": "Scratch containers"
+     },
+     {
+      "description": "Giving each run its own internal network with no outside access, so runs happening at the same time never share a network.",
+      "slug": "network-isolation",
+      "title": "Network isolation"
+     },
+     {
+      "description": "Running the load and the checks directly on the current host, pod or VM when no image is given, and warning that container-only limits do not apply there.",
+      "slug": "in-place-restore",
+      "title": "In-place restore"
+     },
+     {
+      "description": "Running the readiness command again and again until the restored service answers, and failing the run once the timeout runs out.",
+      "slug": "readiness-wait",
+      "title": "Readiness wait"
+     },
+     {
+      "description": "Running the plan's load command to import the fetched backup into the restored service.",
+      "slug": "dump-loading",
+      "title": "Dump loading"
+     },
+     {
+      "description": "Removing the scratch container and network after every run, without hiding the run's result if cleanup fails, unless --keep asks to leave them up for inspection.",
+      "slug": "teardown",
+      "title": "Teardown and inspection"
+     }
+    ],
+    "description": "Where the backup gets loaded and the plan's commands run: a disposable container, or the current machine.",
+    "slug": "restore-environments",
+    "title": "Restore environments"
+   },
+   {
+    "areas": [
+     {
+      "description": "Passing a check only when its trimmed output equals the expected value.",
+      "slug": "exact-match",
+      "title": "Exact-match expectations"
+     },
+     {
+      "description": "Passing a check only when its output is a number within the given minimum and maximum.",
+      "slug": "numeric-bounds",
+      "title": "Numeric bounds"
+     },
+     {
+      "description": "Recording a pass or fail with output or reason for each check, and printing a ✓/✗ line for it as the run goes.",
+      "slug": "check-results",
+      "title": "Check results"
+     }
+    ],
+    "description": "Queries run against the restored data to prove it holds what it should.",
+    "slug": "smoke-checks",
+    "title": "Smoke checks"
+   },
+   {
+    "areas": [
+     {
+      "description": "Progress messages and a final PASS/FAIL line with the number of checks passed and how long the run took.",
+      "slug": "console-summary",
+      "title": "Console summary"
+     },
+     {
+      "description": "A machine-readable result document on stdout, with all progress and child process output sent to stderr.",
+      "slug": "json-output",
+      "title": "JSON output"
+     },
+     {
+      "description": "Exit statuses that tell apart a passing run, failed checks, an unreadable plan and an invalid plan.",
+      "slug": "exit-codes",
+      "title": "Exit codes"
+     }
+    ],
+    "description": "How the result of a verification run is shown to people and to scripts.",
+    "slug": "run-reporting",
+    "title": "Run reporting"
+   },
+   {
+    "areas": [
+     {
+      "description": "A best-effort ping to a dead-man's-switch URL after a successful run, for http(s) URLs only.",
+      "slug": "heartbeat",
+      "title": "Success heartbeat"
+     },
+     {
+      "description": "A best-effort shell command fired when checks fail or the run errors, given the status, failed checks, error and duration in environment variables.",
+      "slug": "failure-hook",
+      "title": "Failure notifications"
+     },
+     {
+      "description": "Adding one JSON line per run, with timestamp, duration, outcome and any error, to a history file used to track restore time (RTO).",
+      "slug": "run-history",
+      "title": "Run history"
+     }
+    ],
+    "description": "Telling outside systems how a run went and keeping a record of past runs.",
+    "slug": "alerting-history",
+    "title": "Alerting and history"
+   },
+   {
+    "areas": [
+     {
+      "description": "A hardened, hash-pinned container image that runs as a non-root user and needs the host's container runtime socket to start scratch containers.",
+      "slug": "container-image",
+      "title": "Container image"
+     },
+     {
+      "description": "Installing the CLI with pip and building the sdist and wheel.",
+      "slug": "python-package",
+      "title": "Python package"
+     }
+    ],
+    "description": "How backup-verify is packaged and installed for operators.",
+    "slug": "distribution",
+    "title": "Distribution"
+   },
+   {
+    "areas": [
+     {
+      "description": "Make targets for an editable install with dev dependencies, installing the pre-commit hook, and listing the available commands.",
+      "slug": "dev-setup",
+      "title": "Development setup"
+     },
+     {
+      "description": "Running every pre-commit hook, formatting the code and type-checking the package.",
+      "slug": "quality-gates",
+      "title": "Quality gates"
+     },
+     {
+      "description": "Running the test suite.",
+      "slug": "testing",
+      "title": "Testing"
+     }
+    ],
+    "description": "The workflow contributors use to set up, check and test the project.",
+    "slug": "developer-tooling",
+    "title": "Developer tooling"
+   },
+   {
+    "areas": [
+     {
+      "description": "The accent colours shared by the docs and the splash page, light and dark schemes, system fonts loaded from nowhere, and the header, navigation and footer styling.",
+      "slug": "site-theme",
+      "title": "Site theme"
+     },
+     {
+      "description": "How headings, code blocks, tables, buttons, the home page hero and feature cards look.",
+      "slug": "content-styling",
+      "title": "Content styling"
+     }
+    ],
+    "description": "The look of the project's published documentation.",
+    "slug": "documentation-site",
+    "title": "Documentation site"
+   }
+  ]
+ }
+}
