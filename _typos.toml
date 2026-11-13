@@ -1,3 +1,12 @@
+[default]
+# release-please writes CHANGELOG entries as markdown links whose label is the
+# abbreviated commit SHA — "([5abd84e](https://github.com/.../commit/5abd84e…))".
+# typos splits such a hash into words, so "abd" in it is reported as "and"/"bad".
+# Ignore SHA-shaped labels and commit URLs, so CHANGELOG.md prose is still checked.
+extend-ignore-re = ["/commit/[0-9a-f]{7,40}", "\\[[0-9a-f]{7,40}\\]"]
+
 [default.extend-words]
 # Recovery Time Objective — a standard backup/DR term, not a typo of "TO".
 RTO = "RTO"
+# certifi is the PyPI package, spelled that way on purpose.
+certifi = "certifi"
