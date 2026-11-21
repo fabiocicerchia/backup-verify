@@ -4,6 +4,13 @@ This file is maintained automatically by
 [release-please](https://github.com/googleapis/release-please) from Conventional
 Commit messages — don't edit it by hand.
 
+## [0.5.2](https://github.com/fabiocicerchia/backup-verify/compare/v0.5.1...v0.5.2) (2026-11-19)
+
+
+### Bug Fixes
+
+* **ci:** quote boneyard release label so the PR number is sent ([#166](https://github.com/fabiocicerchia/backup-verify/issues/166)) ([a076a23](https://github.com/fabiocicerchia/backup-verify/commit/a076a23ae40778bebbc8781467d776d500a23243))
+
 ## [0.5.1](https://github.com/fabiocicerchia/backup-verify/compare/v0.5.0...v0.5.1) (2026-11-13)
 
 
